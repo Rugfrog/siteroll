@@ -246,7 +246,7 @@ export default function WorkerDetail() {
                     <li key={a.id}>
                       <div className="grow">
                         <div className="title small">
-                          {fmtDay(a.work_date)} · {fmtTime(a.in_at)}–{a.out_at ? fmtTime(a.out_at) : 'on site'}
+                          {fmtDay(a.work_date)} · {fmtTime(a.in_at)}{a.out_at ? `–${fmtTime(a.out_at)}` : ' · still on site'}
                         </div>
                         <div className="tiny muted">{a.site_name}</div>
                       </div>

@@ -43,6 +43,10 @@ async function main() {
   const db = getDb();
   const hasData = db.prepare('SELECT 1 FROM agency WHERE id = 1').get();
   if (!hasData) {
+    if (!config.demoMode) {
+      console.error('\n  No agency set up yet. Run:  npm run setup -- --agency "Your Agency Ltd" --name "Your Name" --email you@example.co.uk --password "a long password"\n');
+      process.exit(1);
+    }
     console.log('First run: loading the demo data…');
     seed(db);
   }

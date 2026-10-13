@@ -49,6 +49,10 @@ export class RateLimiter {
     this.hits.set(key, list);
     return true;
   }
+  /** True if another hit would be allowed, without recording one. */
+  allowed(key: string, now = Date.now()): boolean {
+    return (this.hits.get(key) || []).filter((t) => now - t < this.windowMs).length < this.max;
+  }
   reset() {
     this.hits.clear();
   }

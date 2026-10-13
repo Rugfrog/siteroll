@@ -7,14 +7,14 @@ import { v, ValidationError } from '../lib/validate';
 import { randomToken } from '../lib/security';
 import { addDays, londonDate, mondayOf, weekDates } from '../../shared/time';
 import { fmtPhone, normaliseMobile } from '../../shared/format';
-import { actorName, requireAgency } from '../auth';
+import { actorName, requireAgency, startSession } from '../auth';
 import { closeMissedSignOuts } from '../services/attendance';
 import { deleteUpload, saveDataUrlImage } from '../services/files';
 import { notify } from '../services/events';
 import { send } from '../services/messaging';
 import { cardStatus, fullName, type ClientRow, type SiteRow, type WorkerRow } from '../services/rules';
 import { agencyRow, availableReplacements, runNoShowCheck, runSignoffSchedule, runtime, sendLoginLink, sendReplacement } from '../services/workflows';
-import { seed } from '../seed';
+import { DEMO_LOGIN, seed } from '../seed';
 import { codeLimiterIp, codeLimiterPhone } from './worker';
 
 export const adminRouter = Router();
@@ -487,11 +487,14 @@ adminRouter.get('/outbox', (req, res) => {
 
 /* ---------------- Demo tools ---------------- */
 
-adminRouter.post('/demo/reset', (_req, res) => {
+adminRouter.post('/demo/reset', (req, res) => {
   if (!config.demoMode) return res.status(403).json({ error: 'Demo mode is off' });
   seed(getDb());
   codeLimiterIp.reset();
   codeLimiterPhone.reset();
+  // The reset wipes all sessions; keep the person who pressed it logged in.
+  const u = getDb().prepare('SELECT id FROM users WHERE email = ?').get(DEMO_LOGIN.email) as { id: number } | undefined;
+  if (u) startSession(req, res, 'agency', u.id);
   notify({ type: 'reset' });
   res.json({ ok: true });
 });

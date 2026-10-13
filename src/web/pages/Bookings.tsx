@@ -97,8 +97,12 @@ export default function Bookings() {
                           <div className="tiny muted">
                             {w.trade} · {bookedDays.get(w.id) ? `${bookedDays.get(w.id)} days booked` : 'free all week'}
                           </div>
+                          {w.card !== 'ok' && (
+                            <div style={{ marginTop: 2 }}>
+                              <CardBadge status={w.card} />
+                            </div>
+                          )}
                         </div>
-                        {w.card !== 'ok' && <CardBadge status={w.card} />}
                       </div>
                     ))}
                   </div>
@@ -154,7 +158,7 @@ export default function Bookings() {
                             >
                               {cell(s.id, day).map((b: any) => (
                                 <div key={b.id} className={`booking ${b.status === 'no_show' ? 'no-show' : ''}`} title={`${b.name} · ${b.trade}${b.status === 'no_show' ? ' · no-show' : ''}`}>
-                                  <span>{b.name}</span>
+                                  <span>{shortName(b.name)}</span>
                                   <button onClick={() => remove(b.id)} aria-label={`Remove ${b.name}`}>
                                     ×
                                   </button>
@@ -171,12 +175,12 @@ export default function Bookings() {
 
               {/* Mobile planner: one day at a time */}
               <div className="planner-mobile stack">
-                <div className="seg" style={{ display: 'flex', overflowX: 'auto' }} role="tablist" aria-label="Day">
+                <div className="seg" style={{ display: 'flex' }} role="tablist" aria-label="Day">
                   {d.days.map((day: string) => (
-                    <button key={day} role="tab" aria-selected={mobileDay === day} className={mobileDay === day ? 'on' : ''} onClick={() => setMobileDay(day)} style={{ flex: 1 }}>
+                    <button key={day} role="tab" aria-selected={mobileDay === day} className={mobileDay === day ? 'on' : ''} onClick={() => setMobileDay(day)} style={{ flex: 1, padding: '6px 2px', minWidth: 0 }}>
                       {fmtDay(day).slice(0, 3)}
                       <br />
-                      <span className="tiny">{fmtDay(day).slice(4)}</span>
+                      <span className="tiny">{fmtDay(day).split(' ')[1]}</span>
                     </button>
                   ))}
                 </div>
@@ -248,6 +252,12 @@ export default function Bookings() {
       </Async>
     </>
   );
+}
+
+/** 'Gary Armitage' → 'Gary A.' so chips stay readable in narrow day columns. */
+function shortName(name: string) {
+  const parts = name.split(' ');
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1][0]}.` : name;
 }
 
 function SiteRow({ children }: { children: React.ReactNode }) {

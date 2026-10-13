@@ -4,7 +4,7 @@
 import type { DB } from './db';
 import { clearAll, nowIso } from './db';
 import { clock } from './config';
-import { addDays, londonDate, londonToUtc, mondayOf, weekdayIndex } from '../shared/time';
+import { addDays, londonDate, londonTime, londonToUtc, mondayOf, weekdayIndex } from '../shared/time';
 import { hashPassword, randomToken } from './lib/security';
 import { approveTimesheet, ensureTimesheet } from './services/timesheets';
 import { closeMissedSignOuts } from './services/attendance';
@@ -42,25 +42,25 @@ const SKL = { scheme: 'CSCS' as const, type: 'Skilled Worker (blue)' };
 export const WORKERS: WorkerSeed[] = [
   { first: 'Dave', last: 'Haigh', trade: 'Site supervisor', pay: 2800, charge: 3600, crew: 'B', card: { scheme: 'CSCS', type: 'Supervisor (gold)', expiryDays: 900 }, tickets: [{ name: 'SMSTS', expiryDays: 640 }, { name: 'First Aid at Work', expiryDays: 21 }] },
   { first: 'Callum', last: 'Ainley', trade: 'General labourer', pay: 1350, charge: 1750, crew: 'B', card: { ...LAB, expiryDays: 700 } },
-  { first: 'Liam', last: 'Sutcliffe', trade: 'Bricklayer', pay: 2400, charge: 3200, crew: 'B', card: { ...SKL, expiryDays: 1200 } },
-  { first: 'Tomasz', last: 'Nowak', trade: 'Bricklayer', pay: 2400, charge: 3200, crew: 'B', card: { ...SKL, expiryDays: 410 } },
+  { first: 'Liam', last: 'Sutcliffe', trade: 'Bricklayer', pay: 2400, charge: 3400, crew: 'B', card: { ...SKL, expiryDays: 1200 } },
+  { first: 'Tomasz', last: 'Nowak', trade: 'Bricklayer', pay: 2400, charge: 3050, crew: 'B', card: { ...SKL, expiryDays: 410 } },
   { first: 'Jordan', last: 'Booth', trade: 'Bricklayer', pay: 2350, charge: 3150, crew: 'B', card: { ...SKL, expiryDays: 980 } },
   { first: 'Ryan', last: 'Firth', trade: 'Joiner', pay: 2200, charge: 2950, crew: 'B', card: { ...SKL, expiryDays: 530 } },
   { first: 'Kieran', last: 'Lockwood', trade: 'Joiner', pay: 2200, charge: 2950, crew: 'B', card: { ...SKL, expiryDays: 300 } },
-  { first: 'Aisha', last: 'Rahman', trade: 'Plasterer', pay: 2100, charge: 2850, crew: 'B', card: { ...SKL, expiryDays: 1500 } },
+  { first: 'Aisha', last: 'Rahman', trade: 'Plasterer', pay: 2100, charge: 2950, crew: 'B', card: { ...SKL, expiryDays: 1500 } },
   { first: 'Mark', last: 'Dyson', trade: 'Groundworker', pay: 1700, charge: 2250, crew: 'B', card: { ...SKL, expiryDays: 820 }, tickets: [{ name: 'NRSWA Operative', expiryDays: 1000 }] },
   { first: 'Paul', last: 'Crowther', trade: 'Groundworker', pay: 1700, charge: 2250, crew: 'B', card: { ...SKL, expiryDays: 260 } },
   { first: 'Josh', last: 'Senior', trade: 'General labourer', pay: 1350, charge: 1750, crew: 'B', card: { ...LAB, expiryDays: 19 } },
   { first: 'Ben', last: 'Kaye', trade: 'General labourer', pay: 1400, charge: 1800, crew: 'B', card: { ...LAB, expiryDays: 640 } },
-  { first: 'Hassan', last: 'Iqbal', trade: 'Plant operator', pay: 2000, charge: 2700, crew: 'B', card: { scheme: 'CPCS', type: 'Competent Operator (blue) – A59 360° excavator', expiryDays: 1100 } },
+  { first: 'Hassan', last: 'Iqbal', trade: 'Plant operator', pay: 2000, charge: 2900, crew: 'B', card: { scheme: 'CPCS', type: 'Competent Operator (blue) – A59 360° excavator', expiryDays: 1100 } },
   { first: 'Adam', last: 'Barraclough', trade: 'General labourer', pay: 1300, charge: 1700, crew: 'B', card: { ...LAB, expiryDays: 450 } },
-  { first: 'Sophie', last: 'Walsh', trade: 'Joiner', pay: 2200, charge: 2950, crew: 'H', card: { ...SKL, expiryDays: 760 } },
+  { first: 'Sophie', last: 'Walsh', trade: 'Joiner', pay: 2200, charge: 2750, crew: 'H', card: { ...SKL, expiryDays: 760 } },
   { first: 'Gary', last: 'Armitage', trade: 'General labourer', pay: 1350, charge: 1750, crew: 'H', card: { ...LAB, expiryDays: 350 } },
-  { first: 'Daniel', last: 'Okafor', trade: 'Plasterer', pay: 2100, charge: 2850, crew: 'H', card: { ...SKL, expiryDays: 1300 } },
-  { first: 'Craig', last: 'Hirst', trade: 'Groundworker', pay: 1750, charge: 2300, crew: 'H', card: { ...SKL, expiryDays: 12 }, tickets: [{ name: 'Asbestos awareness', expiryDays: 200 }] },
-  { first: 'Lee', last: 'Pearson', trade: 'Bricklayer', pay: 2450, charge: 3250, crew: 'M', card: { ...SKL, expiryDays: 690 } },
-  { first: 'Nathan', last: 'Shaw', trade: 'Joiner', pay: 2250, charge: 3000, crew: 'M', card: { ...SKL, expiryDays: 870 } },
-  { first: 'Owen', last: 'Bamforth', trade: 'General labourer', pay: 1300, charge: 1700, crew: 'M', card: { ...LAB, expiryDays: 25 } },
+  { first: 'Daniel', last: 'Okafor', trade: 'Plasterer', pay: 2100, charge: 3000, crew: 'H', card: { ...SKL, expiryDays: 1300 } },
+  { first: 'Craig', last: 'Hirst', trade: 'Groundworker', pay: 1750, charge: 2200, crew: 'H', card: { ...SKL, expiryDays: 12 }, tickets: [{ name: 'Asbestos awareness', expiryDays: 200 }] },
+  { first: 'Lee', last: 'Pearson', trade: 'Bricklayer', pay: 2450, charge: 3400, crew: 'M', card: { ...SKL, expiryDays: 690 } },
+  { first: 'Nathan', last: 'Shaw', trade: 'Joiner', pay: 2250, charge: 2850, crew: 'M', card: { ...SKL, expiryDays: 870 } },
+  { first: 'Owen', last: 'Bamforth', trade: 'General labourer', pay: 1300, charge: 1650, crew: 'M', card: { ...LAB, expiryDays: 25 } },
   { first: 'Ewan', last: 'Mellor', trade: 'Plasterer', pay: 2100, charge: 2850, crew: 'M', card: { ...SKL, expiryDays: 1000 } },
   { first: 'Kyle', last: 'Dyson', trade: 'General labourer', pay: 1300, charge: 1700, crew: 'spare', card: { ...LAB, expiryDays: -40 } },
   { first: 'Reece', last: 'Hinchliffe', trade: 'General labourer', pay: 1300, charge: 1700, crew: 'spare', card: { ...LAB, expiryDays: 580 }, noRtw: true },
@@ -305,7 +305,7 @@ export function seed(db: DB, opts: { today?: string } = {}) {
         a.id,
       );
       edit(a.id, 'Gareth Holroyd (Calder Construction Ltd)', londonToUtc(addDays(thisWeek, -17), '15:05'), [{ field: 'Query', from: null, to: 'Left site at 2pm, not 4:30pm' }], 'Queried by site manager');
-      edit(a.id, officer, londonToUtc(addDays(thisWeek, -14), '09:40'), [{ field: 'Signed out', from: '16:3x', to: '14:00' }], 'Agreed with Jordan and Gareth. Forgot to sign out when he left for the dentist.');
+      edit(a.id, officer, londonToUtc(addDays(thisWeek, -14), '09:40'), [{ field: 'Signed out', from: londonTime(a.out_at), to: '14:00' }], 'Agreed with Jordan and Gareth. Forgot to sign out when he left for the dentist.');
     }
   }
 
@@ -465,6 +465,18 @@ export function seed(db: DB, opts: { today?: string } = {}) {
     -1.7676,
     18,
     6480,
+  );
+
+  // Kyle (expired card) was turned away at Marsden last week.
+  db.prepare("INSERT INTO sign_in_attempts (worker_id, site_id, action, at, lat, lng, accuracy, distance_m, reason) VALUES (?,?,?,?,?,?,?,?, 'card_expired')").run(
+    idBy('Dyson:Kyle'),
+    siteM,
+    'in',
+    londonToUtc(addDays(thisWeek, -4), '07:24').toISOString(),
+    53.6011,
+    -1.9298,
+    14,
+    12,
   );
 
   // A couple of codes already in the outbox, as if workers had set up new phones.

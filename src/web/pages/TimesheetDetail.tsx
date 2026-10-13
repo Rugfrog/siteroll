@@ -8,6 +8,9 @@ import { fmtDateTime, fmtDay, fmtHours, fmtMoney, fmtTime } from '../../shared/f
 import { marginPctOf } from '../util';
 
 export function TimesheetGrid({ view, onOpen, showMoney }: { view: any; onOpen: (id: number) => void; showMoney: boolean }) {
+  // Weekend columns only when someone worked them, to keep the grid readable on a laptop.
+  const all = view.workers.flatMap((w: any) => w.shifts);
+  const days: string[] = view.days.filter((d: string, i: number) => i < 5 || all.some((s: any) => s.date === d));
   const dayTotal = (d: string) => view.workers.flatMap((w: any) => w.shifts).filter((s: any) => s.date === d).reduce((s: number, x: any) => s + x.workedMins, 0);
   return (
     <div className="table-wrap">
@@ -15,7 +18,7 @@ export function TimesheetGrid({ view, onOpen, showMoney }: { view: any; onOpen: 
         <thead>
           <tr>
             <th>Worker</th>
-            {view.days.map((d: string) => (
+            {days.map((d: string) => (
               <th key={d} className="num" style={{ textAlign: 'center' }}>
                 {fmtDay(d)}
               </th>
@@ -41,7 +44,7 @@ export function TimesheetGrid({ view, onOpen, showMoney }: { view: any; onOpen: 
                   </div>
                 </div>
               </td>
-              {view.days.map((d: string) => {
+              {days.map((d: string) => {
                 const shifts = w.shifts.filter((s: any) => s.date === d);
                 return (
                   <td key={d} className="day">
@@ -85,7 +88,7 @@ export function TimesheetGrid({ view, onOpen, showMoney }: { view: any; onOpen: 
         <tfoot>
           <tr>
             <td>{view.totals.workers} workers</td>
-            {view.days.map((d: string) => (
+            {days.map((d: string) => (
               <td key={d} className="num" style={{ textAlign: 'center' }}>
                 {dayTotal(d) ? fmtHours(dayTotal(d)) : '–'}
               </td>

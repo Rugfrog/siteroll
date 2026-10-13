@@ -105,7 +105,9 @@ function PayrollTab() {
                   <tfoot>
                     <tr>
                       <td colSpan={7}>Total</td>
-                      <td className="num">{fmtMoney(d.totalGross)}</td>
+                      <td className="num" data-label="Gross">
+                        {fmtMoney(d.totalGross)}
+                      </td>
                       <td />
                     </tr>
                   </tfoot>
@@ -216,9 +218,9 @@ function MarginTable({ data, by, setBy }: { data: any; by: 'site' | 'client' | '
                               key={w}
                               title={`w/c ${fmtDay(w)}: ${pct == null ? 'no hours' : `${pct}%`}`}
                               className="tiny"
-                              style={{ minWidth: 36, textAlign: 'center', padding: '2px 0', borderRadius: 4, background: pct == null ? '#f3f2ee' : `color-mix(in srgb, var(--brand) ${Math.min(100, Math.max(12, pct * 3))}%, white)`, color: pct != null && pct > 20 ? '#fff' : 'var(--ink)' }}
+                              style={{ minWidth: 44, textAlign: 'center', padding: '2px 0', borderRadius: 4, background: pct == null ? '#f3f2ee' : `color-mix(in srgb, var(--brand) ${Math.min(100, Math.max(8, (pct - 15) * 6))}%, white)`, color: pct != null && pct > 24 ? '#fff' : 'var(--ink)' }}
                             >
-                              {pct == null ? '–' : `${Math.round(pct)}%`}
+                              {pct == null ? '–' : `${pct.toFixed(1)}%`}
                             </span>
                           );
                         })}
@@ -231,11 +233,21 @@ function MarginTable({ data, by, setBy }: { data: any; by: 'site' | 'client' | '
             <tfoot>
               <tr>
                 <td>Total</td>
-                <td className="num">{fmtHours(tot.mins)}</td>
-                <td className="num">{fmtMoney(tot.charge)}</td>
-                <td className="num">{fmtMoney(tot.pay)}</td>
-                <td className="num">{fmtMoney(tot.charge - tot.pay)}</td>
-                <td className="num">{marginPctOf(tot.charge, tot.pay)}%</td>
+                <td className="num" data-label="Hours">
+                  {fmtHours(tot.mins)}
+                </td>
+                <td className="num" data-label="Charge">
+                  {fmtMoney(tot.charge)}
+                </td>
+                <td className="num" data-label="Pay">
+                  {fmtMoney(tot.pay)}
+                </td>
+                <td className="num" data-label="Margin">
+                  {fmtMoney(tot.charge - tot.pay)}
+                </td>
+                <td className="num" data-label="Margin %">
+                  {marginPctOf(tot.charge, tot.pay)}%
+                </td>
                 {by !== 'week' && <td />}
               </tr>
             </tfoot>

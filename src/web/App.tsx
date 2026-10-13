@@ -125,7 +125,7 @@ function DemoBar() {
   return (
     <div className="demo-bar no-print" role="note">
       <strong>DEMO</strong>
-      <span>Texts and emails are simulated — see the Outbox.</span>
+      <span className="demo-text">Texts and emails are simulated — see the Outbox.</span>
       {me.user?.type === 'agency' && (
         <>
           <NavLink to="/outbox">Open Outbox</NavLink>

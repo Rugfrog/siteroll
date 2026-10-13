@@ -1,11 +1,9 @@
 import { useState } from 'react';
-import { useApi, useLiveRefresh } from '../api';
+import { api, useApi, useLiveRefresh } from '../api';
+import { useMe } from '../App';
 import { Icon } from '../icons';
-import { Async, Card, Empty, PageHead } from '../ui';
+import { ActionButton, Async, Card, Empty, PageHead, useToast } from '../ui';
 import { fmtDateTime, fmtPhone } from '../../shared/format';
-import { ActionButton } from '../ui';
-import { api } from '../api';
-import { useToast } from '../ui';
 
 const KINDS: [string, string][] = [
   ['', 'Everything'],
@@ -26,9 +24,17 @@ export default function Outbox() {
   const state = useApi<any[]>(`/api/outbox${kind ? `?kind=${kind}` : ''}`);
   useLiveRefresh(state.reload, 15000);
   const toast = useToast();
+  const { me } = useMe();
   return (
     <>
-      <PageHead title="Outbox" sub="Demo only. Every text and email SiteRoll would have sent, so you can show exactly what each person receives. Plug in a real provider (e.g. Twilio) to send them for real.">
+      <PageHead
+        title="Outbox"
+        sub={
+          me.demoMode
+            ? 'Demo only. Every text and email SiteRoll would have sent, so you can show exactly what each person receives. Plug in a real provider (e.g. Twilio) to send them for real.'
+            : 'Every text and email SiteRoll has sent.'
+        }
+      >
         <select className="select" style={{ width: 'auto' }} value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Show">
           {KINDS.map(([k, l]) => (
             <option key={k} value={k}>
@@ -37,6 +43,7 @@ export default function Outbox() {
           ))}
         </select>
       </PageHead>
+      {me.demoMode && (
       <Card
         title="Run the background checks now"
         sub="These run by themselves every minute. In a demo, press them to see what happens straight away."
@@ -54,6 +61,7 @@ export default function Outbox() {
       >
         <></>
       </Card>
+      )}
       <Card className="mt">
         <Async state={state} rows={10}>
           {(rows) =>

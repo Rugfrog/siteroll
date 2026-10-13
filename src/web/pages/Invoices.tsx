@@ -21,8 +21,8 @@ export default function Invoices() {
           return (
             <>
               <div className="grid grid-3">
-                <Stat label="Outstanding" value={fmtMoney(unpaid.reduce((s: number, i: any) => s + i.gross_pence, 0))} sub={`${unpaid.length} invoices`} />
-                <Stat label="Overdue" value={fmtMoney(overdue.reduce((s: number, i: any) => s + i.gross_pence, 0))} sub={`${overdue.length} invoices`} tone={overdue.length ? 'bad' : undefined} />
+                <Stat label="Outstanding" value={fmtMoney(unpaid.reduce((s: number, i: any) => s + i.gross_pence, 0))} sub={`${unpaid.length} ${unpaid.length === 1 ? 'invoice' : 'invoices'}`} />
+                <Stat label="Overdue" value={fmtMoney(overdue.reduce((s: number, i: any) => s + i.gross_pence, 0))} sub={`${overdue.length} ${overdue.length === 1 ? 'invoice' : 'invoices'}`} tone={overdue.length ? 'bad' : undefined} />
                 <Stat label="Ready to invoice" value={d.ready.length} sub={d.ready.length ? fmtMoney(d.ready.reduce((s: number, r: any) => s + r.chargePence, 0)) + ' + VAT' : 'nothing waiting'} tone={d.ready.length ? 'warn' : undefined} />
               </div>
 

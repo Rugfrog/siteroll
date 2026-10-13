@@ -134,13 +134,14 @@ export function runNoShowCheck(db: DB): number {
   const signedIn = new Set((db.prepare('SELECT DISTINCT worker_id FROM attendance WHERE work_date = ?').all(today) as { worker_id: number }[]).map((r) => r.worker_id));
   const alerted = new Set((db.prepare("SELECT booking_id FROM alerts WHERE type = 'no_show' AND date = ?").all(today) as { booking_id: number }[]).map((r) => r.booking_id));
   const due = findNoShows({ now, bookings, signedInWorkerIds: signedIn, alertedBookingIds: alerted });
-  const agency = agencyRow(db);
+  // Texts go to agency staff mobiles (the office number is usually a landline).
+  const staff = (db.prepare("SELECT name, phone FROM users WHERE phone LIKE '07%'").all() as { name: string; phone: string }[]).slice(0, 5);
   for (const b of due) {
     const w = db.prepare('SELECT * FROM workers WHERE id = ?').get(b.workerId) as WorkerRow;
     const s = db.prepare('SELECT * FROM sites WHERE id = ?').get(b.siteId) as SiteRow;
     const msg = `${fullName(w)} (${w.trade}) hasn't signed in at ${s.name}. Site started at ${s.start_time}.`;
     addAlert(db, { type: 'no_show', siteId: s.id, workerId: w.id, bookingId: b.bookingId, date: today, message: msg });
-    if (agency.phone) send.sms({ to: agency.phone, toName: `${agency.name} office`, kind: 'no_show', body: `SiteRoll no-show: ${msg}` });
+    for (const u of staff) send.sms({ to: u.phone, toName: u.name, kind: 'no_show', body: `SiteRoll no-show: ${msg} Open SiteRoll to text them or send a replacement.`, link: `${runtime.baseUrl}/live` });
   }
   return due.length;
 }

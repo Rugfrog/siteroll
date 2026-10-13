@@ -13,7 +13,9 @@
     "start": "cross-env NODE_ENV=production tsx src/server/index.ts",
     "seed": "tsx src/server/seed-cli.ts",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "setup": "tsx src/server/setup-cli.ts",
+    "add-user": "tsx src/server/setup-cli.ts --add-user"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

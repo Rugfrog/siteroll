@@ -489,7 +489,7 @@ function handleResult(p: Pending, r: any) {
         h('p', {}, r.reason === 'outside' ? String(r.message).replace(/^You don't seem to be on site\.\s*/, '') : r.message),
         r.reason === 'outside' ? h('p', { style: 'font-size:.95rem' }, 'If you are on site, step outside away from buildings and try again, or ask the site manager.') : null,
       ),
-      h('button', { class: 'btn primary', onclick: () => (p.action === 'in' ? showMain() : showBreak()) }, 'Try again'),
+      h('button', { class: 'btn primary', onclick: (e: Event) => (p.action === 'in' ? startSignIn(e.currentTarget as HTMLButtonElement) : showBreak()) }, 'Try again'),
       manual,
       demoPicker(),
     );

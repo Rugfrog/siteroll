@@ -928,6 +928,9 @@ textarea.input {
 .modal-wide {
   max-width: 760px;
 }
+.modal:focus {
+  outline: none;
+}
 .modal-head {
   padding: 18px 22px 4px;
   display: flex;
@@ -1201,13 +1204,6 @@ textarea.input {
 .rollcall-list li.missing {
   background: #fff1f0;
 }
-.rollcall-list li.missing .who::before {
-  content: 'NOT YET SAFE · ';
-  color: #b3170a;
-  font-size: 0.8rem;
-  display: block;
-  letter-spacing: 0.06em;
-}
 .rollcall-list li.safe {
   background: #f1fbf3;
 }
@@ -1262,8 +1258,8 @@ textarea.input {
 }
 .week-grid {
   display: grid;
-  grid-template-columns: 170px repeat(7, minmax(110px, 1fr));
-  min-width: 960px;
+  grid-template-columns: 170px repeat(5, minmax(104px, 1fr)) repeat(2, minmax(84px, 0.75fr));
+  min-width: 900px;
 }
 .week-grid .cell {
   border-right: 1px solid var(--line-2);
@@ -1717,7 +1713,6 @@ textarea.input {
     color: var(--muted);
     text-align: left;
     flex: none;
-    text-transform: capitalize;
   }
   table.t.responsive td:first-child {
     font-size: 1rem;
@@ -1732,19 +1727,28 @@ textarea.input {
     display: none;
   }
   table.t.responsive tfoot tr {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 4px 12px;
     background: #fbfaf8;
+    border-top: 2px solid var(--line);
   }
   table.t.responsive tfoot td {
-    padding: 0;
     background: none;
     border: 0;
   }
-  table.t.responsive tfoot td::before {
-    content: none;
+  table.t.responsive td:first-child {
+    display: block;
+  }
+  table.t.responsive .row {
+    flex-wrap: wrap !important;
+    justify-content: flex-end;
+  }
+  .stat .value {
+    font-size: clamp(1.2rem, 6.4vw, 1.9rem);
+  }
+  .list > li {
+    flex-wrap: wrap;
+  }
+  .list > li > .grow {
+    flex-basis: 55%;
   }
   table.t.responsive tbody tr:hover td {
     background: none;
@@ -1777,4 +1781,15 @@ textarea.input {
 }
 .alert-item > div {
   padding-right: 22px;
+}
+
+/* Phones: a compact demo strip */
+@media (max-width: 900px) {
+  .demo-bar {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .demo-bar .demo-text {
+    display: none;
+  }
 }

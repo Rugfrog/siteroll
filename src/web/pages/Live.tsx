@@ -67,7 +67,7 @@ export function LiveBoard({ client = false }: { client?: boolean }) {
           return (
             <div className="stack mt">
               {sites.map((s: any) => (
-                <SiteBoard key={s.id} site={s} client={client} onRollCall={() => startRollCall(s.id)} onChange={state.reload} />
+                <SiteBoard key={s.id} site={s} client={client} showFire={!client || d.sites.length > 1} onRollCall={() => startRollCall(s.id)} onChange={state.reload} />
               ))}
             </div>
           );
@@ -77,7 +77,7 @@ export function LiveBoard({ client = false }: { client?: boolean }) {
   );
 }
 
-function SiteBoard({ site, client, onRollCall, onChange }: { site: any; client: boolean; onRollCall: () => void; onChange: () => void }) {
+function SiteBoard({ site, client, showFire, onRollCall, onChange }: { site: any; client: boolean; showFire: boolean; onRollCall: () => void; onChange: () => void }) {
   const flagged = site.onSite.filter((p: any) => p.flags.length || p.card !== 'ok').length;
   return (
     <section className="card site-board" aria-labelledby={`site-${site.id}`}>
@@ -95,9 +95,11 @@ function SiteBoard({ site, client, onRollCall, onChange }: { site: any; client: 
             </p>
           </div>
         </div>
-        <button className="btn btn-danger" onClick={onRollCall}>
-          <Icon name="flame" /> Fire roll call
-        </button>
+        {showFire && (
+          <button className="btn btn-danger" onClick={onRollCall}>
+            <Icon name="flame" /> Fire roll call
+          </button>
+        )}
       </div>
 
       {site.pendingManual.length > 0 && (

@@ -26,9 +26,14 @@ authRouter.get('/me', (req, res) => {
 authRouter.post('/login', (req, res) => {
   const email = String(req.body?.email ?? '').trim().toLowerCase().slice(0, 200);
   const password = String(req.body?.password ?? '').slice(0, 200);
-  if (!loginLimiter.hit(`${req.ip}:${email}`)) return res.status(429).json({ error: 'Too many attempts. Please wait 15 minutes.' });
+  // Only failed attempts count towards the limit.
+  const key = `${req.ip}:${email}`;
+  if (!loginLimiter.allowed(key)) return res.status(429).json({ error: 'Too many attempts. Please wait 15 minutes.' });
   const u = getDb().prepare('SELECT * FROM users WHERE email = ?').get(email) as { id: number; password_hash: string } | undefined;
-  if (!u || !verifyPassword(password, u.password_hash)) return res.status(401).json({ error: "That email and password don't match" });
+  if (!u || !verifyPassword(password, u.password_hash)) {
+    loginLimiter.hit(key);
+    return res.status(401).json({ error: "That email and password don't match" });
+  }
   startSession(req, res, 'agency', u.id);
   res.json({ ok: true });
 });

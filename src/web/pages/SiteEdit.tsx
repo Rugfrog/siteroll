@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { api, useApi } from '../api';
 import { Icon } from '../icons';
-import { ActionButton, Card, ErrorBox, Field, Loading, PageHead, useToast } from '../ui';
+import { ActionButton, Card, Empty, ErrorBox, Field, Loading, PageHead, useToast } from '../ui';
 
 const DEFAULT = { lat: 53.6458, lng: -1.785 }; // Huddersfield
 
@@ -24,6 +24,18 @@ export default function SiteEdit() {
     if (!isNew && site.data) setF({ ...site.data, active: !!site.data.active });
   }, [isNew, clients.data, site.data]);
 
+  if (isNew && clients.data && clients.data.length === 0) {
+    return (
+      <>
+        <PageHead title="New site" />
+        <div className="card">
+          <Empty icon="building" title="Add a client first">
+            Every site belongs to a client. <Link to="/clients">Add a client</Link>, then come back.
+          </Empty>
+        </div>
+      </>
+    );
+  }
   if (!f) return site.error ? <ErrorBox error={site.error} /> : <Loading rows={8} />;
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
 
