@@ -1,0 +1,363 @@
+/* Worker sign-in page. Built for a cheap Android in bright sunlight, with gloves on and a cracked
+   screen: black on white, huge buttons, sizes in rem so the phone's text-size setting is respected. */
+
+:root {
+  --brand: #0e6655;
+  --go: #0a7a32;
+  --go-dark: #075c25;
+  --stop: #b3170a;
+  --ink: #0b0c0e;
+  --muted: #3d4148;
+  --line: #c9ccd2;
+  --soft: #f2f3f5;
+  --amber: #ffcc00;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  font-size: 112.5%; /* 18px base, scales with the phone's setting */
+}
+
+body {
+  margin: 0;
+  background: #fff;
+  color: var(--ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+}
+
+main {
+  max-width: 34rem;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.boot {
+  padding: 2rem 1rem;
+  font-size: 1.1rem;
+}
+
+.top {
+  background: var(--brand);
+  color: #fff;
+  padding: 0.9rem 1rem 1rem;
+  border-bottom: 0.3rem solid #000;
+}
+.top .agency {
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.92;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.top .agency img {
+  height: 1.6rem;
+  background: #fff;
+  border-radius: 0.3rem;
+  padding: 0.1rem;
+}
+.top h1 {
+  margin: 0.35rem 0 0;
+  font-size: 1.55rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.top .client {
+  font-size: 0.95rem;
+  opacity: 0.92;
+  margin-top: 0.15rem;
+}
+
+.body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+}
+
+.hello {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0.2rem 0 0;
+}
+.hello small {
+  display: block;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+
+.big {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 6.5rem;
+  border: 0;
+  border-radius: 1.1rem;
+  font-size: 2rem;
+  font-weight: 850;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: var(--go);
+  box-shadow: 0 0.35rem 0 var(--go-dark);
+  cursor: pointer;
+  font-family: inherit;
+  touch-action: manipulation;
+}
+.big:active {
+  transform: translateY(0.2rem);
+  box-shadow: 0 0.15rem 0 var(--go-dark);
+}
+.big.out {
+  background: #1b1d22;
+  box-shadow: 0 0.35rem 0 #000;
+}
+.big[disabled] {
+  opacity: 0.7;
+}
+.big svg {
+  width: 2.2rem;
+  height: 2.2rem;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.6rem;
+  border-radius: 0.8rem;
+  border: 0.15rem solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-size: 1.15rem;
+  font-weight: 750;
+  cursor: pointer;
+  text-decoration: none;
+  font-family: inherit;
+  padding: 0.5rem 1rem;
+  touch-action: manipulation;
+}
+.btn.primary {
+  background: var(--ink);
+  color: #fff;
+}
+.btn.go {
+  background: var(--go);
+  border-color: var(--go);
+  color: #fff;
+}
+
+.choices {
+  display: grid;
+  gap: 0.7rem;
+}
+.choices .btn {
+  min-height: 4.4rem;
+  font-size: 1.45rem;
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+input.text {
+  font: inherit;
+  font-size: 1.5rem;
+  padding: 0.7rem 0.9rem;
+  border: 0.15rem solid var(--ink);
+  border-radius: 0.7rem;
+  width: 100%;
+  min-height: 3.6rem;
+  letter-spacing: 0.04em;
+}
+input.code {
+  font-size: 2.1rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+:focus-visible {
+  outline: 0.25rem solid var(--amber);
+  outline-offset: 0.15rem;
+}
+
+.panel {
+  border-radius: 1rem;
+  padding: 1.1rem;
+  border: 0.15rem solid var(--ink);
+}
+.panel h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.6rem;
+  line-height: 1.15;
+}
+.panel p {
+  margin: 0.3rem 0;
+  font-size: 1.1rem;
+}
+.panel.ok {
+  background: #e6f6ea;
+  border-color: var(--go);
+}
+.panel.bad {
+  background: #fdeceb;
+  border-color: var(--stop);
+}
+.panel.warn {
+  background: #fff7d1;
+  border-color: #8a6d00;
+}
+.tick {
+  width: 4.2rem;
+  height: 4.2rem;
+  border-radius: 50%;
+  background: var(--go);
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.6rem;
+}
+.tick svg {
+  width: 2.6rem;
+  height: 2.6rem;
+  color: #fff;
+}
+.time {
+  font-size: 2.6rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.status {
+  background: var(--soft);
+  border-radius: 0.8rem;
+  padding: 0.8rem 1rem;
+  font-size: 1.05rem;
+}
+.status strong {
+  font-size: 1.15rem;
+}
+
+.demo {
+  border: 0.15rem dashed #8a6d00;
+  background: #fffbe6;
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.8rem;
+}
+.demo .tag {
+  display: inline-block;
+  background: #000;
+  color: var(--amber);
+  font-weight: 800;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.3rem;
+  margin-bottom: 0.35rem;
+}
+.demo select {
+  font: inherit;
+  font-size: 1.05rem;
+  width: 100%;
+  min-height: 3rem;
+  border: 0.12rem solid #000;
+  border-radius: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: #fff;
+}
+.demo p {
+  margin: 0.3rem 0 0;
+  font-size: 0.95rem;
+}
+
+.spinner {
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 0.3rem solid rgb(255 255 255 / 35%);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.5s;
+  }
+}
+
+.foot {
+  padding: 1rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  border-top: 0.1rem solid var(--line);
+}
+.foot details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink);
+  padding: 0.3rem 0;
+}
+.foot p {
+  margin: 0.4rem 0;
+}
+.foot button.link,
+.foot a {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--ink);
+  text-decoration: underline;
+  font: inherit;
+  cursor: pointer;
+}
+
+ul.warnings {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 1.05rem;
+}
+ul.warnings li {
+  margin: 0.3rem 0;
+}
+
+.selfie-preview {
+  width: 100%;
+  max-width: 12rem;
+  border-radius: 0.8rem;
+  border: 0.15rem solid var(--ink);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Headings are focused for screen readers when the screen changes; no ring needed for that. */
+[tabindex='-1']:focus {
+  outline: none;
+}
