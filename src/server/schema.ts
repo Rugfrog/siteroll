@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS clients (
   compliance_mode TEXT NOT NULL DEFAULT 'warn' CHECK (compliance_mode IN ('warn','block')),
   signoff_day INTEGER NOT NULL DEFAULT 4,      -- 0 = Monday … 6 = Sunday
   signoff_time TEXT NOT NULL DEFAULT '14:00',
+  bookings_email TEXT NOT NULL DEFAULT '',     -- booking confirmations go here
   active INTEGER NOT NULL DEFAULT 1
 );
 
@@ -62,15 +63,18 @@ CREATE TABLE IF NOT EXISTS sites (
   start_time TEXT NOT NULL DEFAULT '07:30',
   finish_time TEXT NOT NULL DEFAULT '16:30',
   qr_token TEXT NOT NULL UNIQUE,
+  signin_mode TEXT NOT NULL DEFAULT 'signin',  -- signin (QR/NFC on site) | timesheet (hours come from the booking)
   active INTEGER NOT NULL DEFAULT 1
 );
 
+-- The client's people who approve the hours (site manager, project manager, director…)
 CREATE TABLE IF NOT EXISTS managers (
   id INTEGER PRIMARY KEY,
   client_id INTEGER NOT NULL REFERENCES clients(id),
   name TEXT NOT NULL,
   email TEXT NOT NULL DEFAULT '',
   phone TEXT NOT NULL DEFAULT '',
+  role TEXT NOT NULL DEFAULT '',
   active INTEGER NOT NULL DEFAULT 1
 );
 
@@ -198,6 +202,21 @@ CREATE TABLE IF NOT EXISTS bookings (
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(date, site_id);
 
+-- A week's bookings confirmed to the client by email, with a link asking who approves the hours
+CREATE TABLE IF NOT EXISTS booking_confirmations (
+  id INTEGER PRIMARY KEY,
+  site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  week_start TEXT NOT NULL,
+  sent_to TEXT NOT NULL,
+  sent_by TEXT NOT NULL,
+  sent_at TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  answered_at TEXT,
+  approver_id INTEGER          -- the person the client named
+);
+CREATE INDEX IF NOT EXISTS idx_confirmations_site ON booking_confirmations(site_id, week_start);
+
 CREATE TABLE IF NOT EXISTS alerts (
   id INTEGER PRIMARY KEY,
   type TEXT NOT NULL,       -- no_show | compliance | missed_signout | manual_request | query | not_booked | out_of_area
@@ -315,7 +334,7 @@ CREATE TABLE IF NOT EXISTS outbox (
   recipient_name TEXT NOT NULL DEFAULT '',
   subject TEXT NOT NULL DEFAULT '',
   body TEXT NOT NULL,
-  kind TEXT NOT NULL,        -- code | no_show | signoff | invoice | magic_link | replacement | missed_signout | compliance | fire | offer | chat | other
+  kind TEXT NOT NULL,        -- code | no_show | signoff | invoice | magic_link | replacement | missed_signout | compliance | fire | offer | chat | booking | approver | other
   link TEXT,
   created_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'simulated',  -- simulated | sending | sent | failed

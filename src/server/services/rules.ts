@@ -17,6 +17,7 @@ export interface ClientRow {
   compliance_mode: 'warn' | 'block';
   signoff_day: number;
   signoff_time: string;
+  bookings_email: string;
   active: number;
 }
 
@@ -32,6 +33,8 @@ export interface SiteRow {
   start_time: string;
   finish_time: string;
   qr_token: string;
+  /** signin: workers sign in on site. timesheet: no sign-in; each booked day counts as a normal day. */
+  signin_mode: 'signin' | 'timesheet';
   active: number;
 }
 

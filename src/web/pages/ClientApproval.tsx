@@ -91,6 +91,12 @@ export default function ClientApproval() {
               )}
             </section>
 
+            {v.workers.some((w: any) => w.shifts.some((s: any) => s.method === 'booking')) && (
+              <div className="note-box small" style={{ marginTop: 16 }}>
+                There's no sign-in on this site, so each booked day counts from the usual start to the usual finish, less the normal break. If anyone did different hours, tap <strong>Query</strong> on that day and tell us.
+              </div>
+            )}
+
             <h2 style={{ margin: '24px 0 10px' }}>Who worked</h2>
             <div className="stack" style={{ gap: 10 }}>
               {v.workers.map((w: any) => {

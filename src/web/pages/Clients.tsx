@@ -6,6 +6,7 @@ import { ActionButton, Async, Card, Empty, ErrorBox, Field, Modal, PageHead, use
 import { fmtPhone } from '../../shared/format';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const ROLES = ['Site manager', 'Project manager', 'Contracts manager', 'Director', 'Other'];
 
 export default function Clients() {
   const state = useApi<any[]>('/api/clients');
@@ -13,7 +14,7 @@ export default function Clients() {
   const [manager, setManager] = useState<any | null>(null);
   return (
     <>
-      <PageHead title="Clients & sites" sub="Each client's rules (breaks, overtime, selfies, compliance) and their sites and site managers.">
+      <PageHead title="Clients & sites" sub="Each client's rules (breaks, overtime, selfies, compliance), their sites, and who approves the hours.">
         <button className="btn" onClick={() => setEditing({})}>
           <Icon name="plus" /> New client
         </button>
@@ -54,6 +55,7 @@ export default function Clients() {
                     <span className="badge">
                       Sign-off {DAYS[c.signoff_day]} {c.signoff_time}
                     </span>
+                    {c.bookings_email && <span className="badge">Bookings: {c.bookings_email}</span>}
                   </div>
                   <div className="grid grid-2" style={{ gap: 0 }}>
                     <div style={{ borderRight: '1px solid var(--line-2)' }}>
@@ -72,7 +74,7 @@ export default function Clients() {
                                 {s.name}
                               </Link>
                               <div className="tiny muted">
-                                {s.postcode} · {s.start_time}–{s.finish_time} · {s.radius_m} m geofence {s.active ? '' : '· closed'}
+                                {s.postcode} · {s.start_time}–{s.finish_time} · {s.signin_mode === 'timesheet' ? 'timesheet only, no sign-in' : `${s.radius_m} m geofence`} {s.active ? '' : '· closed'}
                               </div>
                             </div>
                             <Link to={`/sites/${s.id}/poster`} className="btn btn-sm" title="Print the QR poster">
@@ -85,14 +87,16 @@ export default function Clients() {
                     <div>
                       <div className="card-pad spread" style={{ paddingBottom: 0 }}>
                         <h3 className="small muted" style={{ textTransform: 'uppercase', letterSpacing: '.06em', fontSize: '.72rem' }}>
-                          Site managers
+                          Who approves the hours
                         </h3>
                         <button className="btn btn-sm btn-ghost" onClick={() => setManager({ clientId: c.id, siteIds: [], sites: c.sites })}>
                           <Icon name="plus" /> Add
                         </button>
                       </div>
                       <ul className="list">
-                        {c.managers.length === 0 && <li className="small muted">Add a site manager so they can approve timesheets.</li>}
+                        {c.managers.length === 0 && (
+                          <li className="small muted">Add who approves the hours, or confirm a week's bookings with the client (Bookings page) and they'll tell you.</li>
+                        )}
                         {c.managers.map((m: any) => (
                           <li key={m.id}>
                             <div className="grow">
@@ -100,7 +104,7 @@ export default function Clients() {
                                 {m.name}
                               </button>
                               <div className="tiny muted">
-                                {[m.phone && fmtPhone(m.phone), m.email].filter(Boolean).join(' · ')}
+                                {[m.role, m.phone && fmtPhone(m.phone), m.email].filter(Boolean).join(' · ')}
                                 <br />
                                 {c.sites
                                   .filter((s: any) => m.siteIds.includes(s.id))
@@ -152,6 +156,7 @@ function ClientModal({ client, onClose, onSaved }: { client: any; onClose: () =>
     name: client.name ?? '',
     address: client.address ?? '',
     billing_email: client.billing_email ?? '',
+    bookings_email: client.bookings_email ?? '',
     break_default_mins: client.break_default_mins ?? 30,
     break_after_hours: (client.break_after_mins ?? 360) / 60,
     ot_daily_hours: client.ot_daily_mins ? client.ot_daily_mins / 60 : '',
@@ -209,6 +214,9 @@ function ClientModal({ client, onClose, onSaved }: { client: any; onClose: () =>
           </Field>
           <Field label="Accounts email" hint="invoices go here">
             <input className="input" type="email" value={f.billing_email} onChange={set('billing_email')} />
+          </Field>
+          <Field label="Bookings email" hint="booking confirmations go here">
+            <input className="input" type="email" value={f.bookings_email} onChange={set('bookings_email')} />
           </Field>
         </div>
         <Field label="Address">
@@ -288,7 +296,7 @@ function ClientModal({ client, onClose, onSaved }: { client: any; onClose: () =>
 
 function ManagerModal({ manager, onClose, onSaved }: { manager: any; onClose: () => void; onSaved: () => void }) {
   const isNew = !manager.id;
-  const [f, setF] = useState({ name: manager.name ?? '', email: manager.email ?? '', phone: manager.phone ? fmtPhone(manager.phone) : '', siteIds: manager.siteIds as number[], active: manager.active !== 0 });
+  const [f, setF] = useState({ name: manager.name ?? '', email: manager.email ?? '', phone: manager.phone ? fmtPhone(manager.phone) : '', role: manager.role || 'Site manager', siteIds: manager.siteIds as number[], active: manager.active !== 0 });
   const [error, setError] = useState<string | null>(null);
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,7 +311,7 @@ function ManagerModal({ manager, onClose, onSaved }: { manager: any; onClose: ()
   };
   return (
     <Modal
-      title={isNew ? 'Add a site manager' : manager.name}
+      title={isNew ? 'Add someone who approves the hours' : manager.name}
       onClose={onClose}
       footer={
         <>
@@ -318,11 +326,18 @@ function ManagerModal({ manager, onClose, onSaved }: { manager: any; onClose: ()
     >
       <form id="mgr-form" className="stack" onSubmit={save}>
         <p className="small muted" style={{ margin: 0 }}>
-          Site managers log in with a link sent by text or email. No password. They only see the sites you tick.
+          They get the hours to approve each week by email (and text, if you add a mobile), with a link that logs them straight in. No password. They only see the sites you tick.
         </p>
         {error && <ErrorBox error={error} />}
         <Field label="Name">
           <input className="input" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} required />
+        </Field>
+        <Field label="Role">
+          <select className="select" value={f.role} onChange={(e) => setF({ ...f, role: e.target.value })}>
+            {ROLES.map((r) => (
+              <option key={r}>{r}</option>
+            ))}
+          </select>
         </Field>
         <Field label="Mobile">
           <input className="input" type="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} />
@@ -332,7 +347,7 @@ function ManagerModal({ manager, onClose, onSaved }: { manager: any; onClose: ()
         </Field>
         <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
           <legend className="small" style={{ fontWeight: 600, marginBottom: 6 }}>
-            Sites they look after
+            Sites they approve the hours for
           </legend>
           {manager.sites.map((s: any) => (
             <label key={s.id} className="check" style={{ marginBottom: 6 }}>

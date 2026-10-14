@@ -12,6 +12,8 @@ const KINDS: [string, string][] = [
   ['chat', 'WhatsApp replies'],
   ['code', 'Sign-in codes'],
   ['signoff', 'Sign-off requests'],
+  ['booking', 'Booking confirmations'],
+  ['approver', 'Who approves'],
   ['no_show', 'No-shows'],
   ['replacement', 'Replacements'],
   ['missed_signout', 'Missed sign-outs'],
@@ -34,7 +36,7 @@ export default function Outbox() {
         title="Outbox"
         sub={
           me.demoMode
-            ? 'Demo only. Every text and email SiteRoll would have sent, so you can show exactly what each person receives. Plug in a real provider (e.g. Twilio) to send them for real.'
+            ? 'Demo only. Every text and email SiteRoll would have sent, so you can show exactly what each person receives. Connect Twilio (texts and WhatsApp) or Resend (email) to send them for real.'
             : 'Every text and email SiteRoll has sent.'
         }
       >

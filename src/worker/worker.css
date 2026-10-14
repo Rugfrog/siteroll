@@ -492,3 +492,74 @@ body.alarm-calm {
   color: var(--muted);
   text-align: center;
 }
+
+/* Your hours */
+.hours {
+  border: 0.15rem solid var(--line, #d8d8d8);
+  border-radius: 1rem;
+  padding: 0.2rem 1rem;
+  background: #fff;
+}
+.hours summary {
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 1.15rem;
+  padding: 0.7rem 0;
+}
+.hours-week {
+  padding: 0.2rem 0 0.8rem;
+}
+.hours-week + .hours-week {
+  border-top: 0.1rem solid #e5e5e5;
+  padding-top: 0.8rem;
+}
+.hours-week h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+.hours-week h3 span {
+  font-weight: 850;
+}
+.hours-week ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.hours-week li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.35rem 0;
+  border-bottom: 0.06rem solid #eee;
+}
+.hours-day {
+  font-weight: 700;
+  min-width: 5.4rem;
+}
+.hours-where {
+  flex: 1;
+  min-width: 0;
+}
+.hours-where small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.hours-num {
+  font-size: 1.1rem;
+}
+.hours-note {
+  margin: 0.3rem 0;
+  color: var(--muted);
+}
+.hours-status {
+  margin: 0.5rem 0 0;
+  font-weight: 700;
+  font-size: 0.98rem;
+}
+.hours-status.approved {
+  color: var(--go-dark);
+}
+.hours-status.queried {
+  color: #8a6d00;
+}

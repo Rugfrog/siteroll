@@ -28,12 +28,14 @@ const RollCallHistory = lazy(() => import('./pages/RollCallHistory'));
 const Ask = lazy(() => import('./pages/Ask'));
 const Wall = lazy(() => import('./pages/Wall'));
 const WhatsAppPage = lazy(() => import('./pages/WhatsApp'));
+const WhoApproves = lazy(() => import('./pages/WhoApproves'));
 
 export interface Me {
   user: { type: 'agency' | 'manager'; id: number; name: string; clientId: number | null; siteIds: number[] | null } | null;
   agency: { name: string; colour: string; hasLogo: boolean; phone: string } | null;
   demoMode: boolean;
   demoLogin: { email: string; password: string } | null;
+  inviteOnly?: boolean;
 }
 
 const MeCtx = createContext<{ me: Me; reload: () => Promise<void> }>(null as any);
@@ -79,6 +81,7 @@ export function App() {
           <Suspense fallback={<Loading />}>
             <Routes>
               <Route path="/login" element={me.user ? <Navigate to={me.user.type === 'agency' ? '/' : '/client'} replace /> : <Login />} />
+              <Route path="/who-approves/:token" element={<WhoApproves />} />
               <Route path="/sites/:id/poster" element={<Guard type="agency"><Poster /></Guard>} />
               <Route path="/rollcall/:id" element={<Guard><RollCall /></Guard>} />
               <Route path="/wall" element={<Guard type="agency"><Wall /></Guard>} />

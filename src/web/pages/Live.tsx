@@ -82,7 +82,42 @@ export function LiveBoard({ client = false }: { client?: boolean }) {
   );
 }
 
+/** A timesheet-only site has no sign-in, so show who's booked rather than who's on site. */
+function BookedOnlyBoard({ site }: { site: any }) {
+  return (
+    <section className="card site-board" aria-labelledby={`site-${site.id}`}>
+      <div className="card-head">
+        <div className="site-title">
+          <div className="big-count" aria-label={`${site.bookedToday.length} booked today`}>
+            {site.bookedToday.length}
+          </div>
+          <div>
+            <h2 id={`site-${site.id}`}>{site.name}</h2>
+            <p>
+              {site.clientName} · timesheet only · {site.bookedToday.length} booked today
+            </p>
+          </div>
+        </div>
+      </div>
+      <p className="small muted" style={{ margin: 0, padding: '10px 18px' }}>
+        No sign-in on this site. Each booked day counts from {site.startTime} to {site.finishTime}, and the client checks the hours each week.
+      </p>
+      {site.bookedToday.length > 0 && (
+        <div className="expected">
+          {site.bookedToday.map((b: any) => (
+            <span key={b.name} className="chip">
+              <Avatar name={b.name} />
+              {b.name} <span className="muted small">{b.trade}</span>
+            </span>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function SiteBoard({ site, client, showFire, onRollCall, onChange }: { site: any; client: boolean; showFire: boolean; onRollCall: () => void; onChange: () => void }) {
+  if (site.mode === 'timesheet') return <BookedOnlyBoard site={site} />;
   const flagged = site.onSite.filter((p: any) => p.flags.length || p.card !== 'ok').length;
   return (
     <section className="card site-board" aria-labelledby={`site-${site.id}`}>

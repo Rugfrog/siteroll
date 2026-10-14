@@ -1,11 +1,11 @@
 // Worker sign-in page. Plain TypeScript, no framework, so it loads fast on a cheap phone with poor signal.
 // Flow once a phone is remembered: scan → tap "Sign in" → done (2 taps or fewer).
 import './worker.css';
-import { fmtTime } from '../shared/format';
+import { fmtDay, fmtHours, fmtTime } from '../shared/format';
 
 type Place = { key: string; label: string; lat: number; lng: number; accuracy: number };
 interface SiteInfo {
-  site: { name: string; address: string; postcode: string; clientName: string; selfieRequired: boolean; breakDefault: number; blocksExpiredCards: boolean };
+  site: { name: string; address: string; postcode: string; clientName: string; selfieRequired: boolean; breakDefault: number; blocksExpiredCards: boolean; signinMode?: 'signin' | 'timesheet' };
   agency: { name: string; phone: string; colour: string; hasLogo: boolean };
   worker: null | { firstName: string; lastName: string; signedIn: null | { here: boolean; siteName: string; since: string }; card: string; inducted: boolean; alertsOn?: boolean };
   demoMode: boolean;
@@ -244,6 +244,19 @@ function showCode(phone: string, demoCode?: string, error?: string) {
 
 function showMain() {
   const w = info.worker!;
+  // No sign-in on this site: the booking is the timesheet. Just show their hours.
+  if (info.site.signinMode === 'timesheet') {
+    return screen(
+      h('p', { class: 'hello' }, `Hi ${w.firstName}`),
+      h(
+        'div',
+        { class: 'panel ok' },
+        h('h2', {}, 'No need to sign in here'),
+        h('p', {}, `Your hours come from your booking, and ${info.site.clientName} checks them each week. If you do different hours, tell ${info.agency.name}.`),
+      ),
+      hoursSection(true),
+    );
+  }
   const signedHere = w.signedIn?.here;
   // This client turns away expired cards: say so now, rather than after a selfie. (The server checks too.)
   if (!signedHere && info.site.blocksExpiredCards && (w.card === 'expired' || w.card === 'missing')) {
@@ -273,6 +286,65 @@ function showMain() {
     btn,
     action === 'in' && info.site.selfieRequired ? h('p', { style: 'margin:0;color:var(--muted);text-align:center' }, 'This site asks for a quick selfie when you sign in.') : null,
     alertsRow(),
+    hoursSection(false),
+  );
+}
+
+/* ---------------- Your hours ---------------- */
+
+interface HoursWeek {
+  weekStart: string;
+  totalMins: number;
+  onSiteNow: boolean;
+  shifts: { date: string; site: string; inAt: string; outAt: string | null; open: boolean; mins: number; fromBooking: boolean; queried: boolean }[];
+  sites: { name: string; clientName: string; status: string; approvedAt: string | null; mins: number }[];
+}
+
+const SITE_STATUS: Record<string, string> = {
+  open: 'Not sent to the site yet',
+  sent: 'Waiting for the site to approve',
+  queried: 'The site has queried something. The agency is sorting it.',
+  approved: 'Approved by the site',
+};
+
+/** "Your hours": this week and last, exactly as the timesheets have them. Loaded when opened. */
+function hoursSection(open: boolean) {
+  const body = h('div', { class: 'hours-body' }, h('p', { class: 'hours-note' }, 'Loading…'));
+  let loaded = false;
+  const load = async () => {
+    if (loaded) return;
+    loaded = true;
+    try {
+      const res = await fetch('/api/w/hours', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error();
+      const data = (await res.json()) as { weeks: HoursWeek[] };
+      body.replaceChildren(...data.weeks.map((wk, i) => hoursWeek(wk, i === 0 ? 'This week' : 'Last week')));
+    } catch {
+      loaded = false;
+      body.replaceChildren(h('p', { class: 'hours-note' }, "Couldn't load your hours. Check your signal and try again."));
+    }
+  };
+  const d = h('details', { class: 'hours', open: open || null, ontoggle: () => d.open && load() }, h('summary', {}, 'Your hours'), body);
+  if (open) void load();
+  return d;
+}
+
+function hoursWeek(wk: HoursWeek, label: string) {
+  const days = wk.shifts.map((s) =>
+    h(
+      'li',
+      {},
+      h('span', { class: 'hours-day' }, fmtDay(s.date)),
+      h('span', { class: 'hours-where' }, s.site, h('small', {}, s.open ? `In at ${fmtTime(s.inAt)}, still on site` : `${fmtTime(s.inAt)}–${fmtTime(s.outAt)}${s.fromBooking ? ' (booked hours)' : ''}${s.queried ? ' · queried' : ''}`)),
+      h('strong', { class: 'hours-num' }, s.open ? '–' : fmtHours(s.mins)),
+    ),
+  );
+  return h(
+    'section',
+    { class: 'hours-week' },
+    h('h3', {}, `${label}: `, h('span', {}, `${fmtHours(wk.totalMins)} hours`)),
+    wk.shifts.length ? h('ul', {}, ...days) : h('p', { class: 'hours-note' }, 'No hours yet.'),
+    ...wk.sites.map((s) => h('p', { class: `hours-status ${s.status}` }, wk.sites.length > 1 ? `${s.name}: ${SITE_STATUS[s.status] ?? s.status}` : SITE_STATUS[s.status] ?? s.status)),
   );
 }
 

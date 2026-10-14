@@ -1,9 +1,10 @@
-// Weekly timesheets per site, built from sign-ins. While a week is open the figures are worked
-// out live; on approval they are snapshotted into timesheet_lines and locked.
+// Weekly timesheets per site, built from sign-ins (or, on timesheet-only sites, from the bookings).
+// While a week is open the figures are worked out live; on approval they are snapshotted into
+// timesheet_lines and locked.
 import type { DB } from '../db';
 import { nowIso, parseFlags } from '../db';
 import { clock } from '../config';
-import { addDays, londonToUtc, mondayOf, weekDates } from '../../shared/time';
+import { addDays, londonDate, londonTime, londonToUtc, mondayOf, weekDates } from '../../shared/time';
 import { splitWeek, type Shift } from '../lib/hours';
 import { workerTotals, type WorkerTotals } from '../lib/money';
 import { rulesFor, fullName, type AttendanceRow, type ClientRow, type SiteRow, type WorkerRow } from './rules';
@@ -171,9 +172,65 @@ interface LineRow {
   days: string;
 }
 
+/**
+ * Timesheet-only sites have no sign-in on site. Once a booked day has started, it counts from the
+ * site's start time to its usual finish, with the client's normal break. Days nobody has touched
+ * follow the bookings (cancelled or no-show days come off again); anything the agency has edited,
+ * or the client has queried, is left alone. Safe to run as often as you like.
+ */
+export function syncBookedHours(db: DB, siteId: number, weekStart: string): number {
+  const site = db.prepare('SELECT * FROM sites WHERE id = ?').get(siteId) as SiteRow | undefined;
+  if (!site || site.signin_mode !== 'timesheet') return 0;
+  const ts = db.prepare('SELECT status FROM timesheets WHERE site_id = ? AND week_start = ?').get(siteId, weekStart) as { status: string } | undefined;
+  if (ts?.status === 'approved') return 0;
+  const now = clock.now();
+  const today = londonDate(now);
+  const started = (date: string) => date < today || (date === today && londonTime(now) >= site.start_time);
+  const weekEnd = addDays(weekStart, 6);
+  let changed = 0;
+  db.transaction(() => {
+    const bookings = db
+      .prepare("SELECT worker_id, date FROM bookings WHERE site_id = ? AND status = 'booked' AND date BETWEEN ? AND ?")
+      .all(siteId, weekStart, weekEnd) as { worker_id: number; date: string }[];
+    const insert = db.prepare(
+      "INSERT INTO attendance (worker_id, site_id, work_date, in_at, out_at, method, out_method, flags, status, created_at) VALUES (?,?,?,?,?,'booking','booking',?,'ok',?)",
+    );
+    for (const b of bookings) {
+      if (!started(b.date)) continue;
+      // Already has hours that day (here or anywhere else): leave it.
+      if (db.prepare('SELECT 1 FROM attendance WHERE worker_id = ? AND work_date = ?').get(b.worker_id, b.date)) continue;
+      const inAt = londonToUtc(b.date, site.start_time);
+      let outAt = londonToUtc(b.date, site.finish_time);
+      if (outAt <= inAt) outAt = new Date(outAt.getTime() + 86400000); // a night shift past midnight
+      insert.run(b.worker_id, siteId, b.date, inAt.toISOString(), outAt.toISOString(), JSON.stringify(['booked_hours']), nowIso(now));
+      changed++;
+    }
+    const removed = db
+      .prepare(
+        `DELETE FROM attendance WHERE site_id = ? AND method = 'booking' AND work_date BETWEEN ? AND ?
+           AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.worker_id = attendance.worker_id AND b.date = attendance.work_date
+                             AND b.site_id = attendance.site_id AND b.status = 'booked')
+           AND NOT EXISTS (SELECT 1 FROM attendance_edits e WHERE e.attendance_id = attendance.id)`,
+      )
+      .run(siteId, weekStart, weekEnd);
+    changed += removed.changes;
+  })();
+  return changed;
+}
+
+/** Keep every timesheet-only site's hours up to date for this week and last (run by the background jobs). */
+export function syncAllBookedHours(db: DB): number {
+  const thisWeek = mondayOf(londonDate(clock.now()));
+  const sites = db.prepare("SELECT id FROM sites WHERE active = 1 AND signin_mode = 'timesheet'").all() as { id: number }[];
+  let n = 0;
+  for (const s of sites) for (const week of [addDays(thisWeek, -7), thisWeek]) n += syncBookedHours(db, s.id, week);
+  return n;
+}
+
 /** The timesheet as shown everywhere (dashboard, client approval page, PDF). */
 export function getTimesheetView(db: DB, siteId: number, weekStart: string): TimesheetView {
   const ts = ensureTimesheet(db, siteId, weekStart);
+  if (ts.status !== 'approved') syncBookedHours(db, siteId, weekStart);
   const siteInfo = db
     .prepare('SELECT s.id, s.name, s.client_id AS clientId, c.name AS clientName FROM sites s JOIN clients c ON c.id = s.client_id WHERE s.id = ?')
     .get(siteId) as TimesheetView['site'];
@@ -248,4 +305,47 @@ export function approveTimesheet(db: DB, timesheetId: number, by: { managerId: n
 /** Headline for the sign-off message: "14 workers, 562.5 hours". */
 export function weekHeadline(view: TimesheetView): { workers: number; hours: number } {
   return { workers: view.totals.workers, hours: Math.round((view.totals.totalMins / 60) * 100) / 100 };
+}
+
+export interface WorkerHoursWeek {
+  weekStart: string;
+  /** Finished shifts only: a shift still in progress isn't counted until they sign out. */
+  totalMins: number;
+  onSiteNow: boolean;
+  shifts: { date: string; site: string; inAt: string; outAt: string | null; open: boolean; mins: number; fromBooking: boolean; queried: boolean }[];
+  sites: { name: string; clientName: string; status: TimesheetRow['status']; approvedAt: string | null; mins: number }[];
+}
+
+/** A worker's own hours for this week and last, exactly as they appear on the sites' timesheets. */
+export function workerHours(db: DB, workerId: number): { weeks: WorkerHoursWeek[] } {
+  const thisWeek = mondayOf(londonDate(clock.now()));
+  const weeks = [thisWeek, addDays(thisWeek, -7)].map((weekStart): WorkerHoursWeek => {
+    const weekEnd = addDays(weekStart, 6);
+    const siteIds = (
+      db
+        .prepare(
+          `SELECT site_id FROM attendance WHERE worker_id = ? AND work_date BETWEEN ? AND ?
+           UNION SELECT b.site_id FROM bookings b JOIN sites s ON s.id = b.site_id
+             WHERE b.worker_id = ? AND b.date BETWEEN ? AND ? AND b.status = 'booked' AND s.signin_mode = 'timesheet'`,
+        )
+        .all(workerId, weekStart, weekEnd, workerId, weekStart, weekEnd) as { site_id: number }[]
+    ).map((r) => r.site_id);
+    const week: WorkerHoursWeek = { weekStart, totalMins: 0, onSiteNow: false, shifts: [], sites: [] };
+    for (const siteId of siteIds) {
+      const view = getTimesheetView(db, siteId, weekStart);
+      const mine = view.workers.find((w) => w.workerId === workerId);
+      if (!mine) continue;
+      let mins = 0;
+      for (const s of mine.shifts) {
+        if (s.estimatedOut) week.onSiteNow = true;
+        else mins += s.workedMins;
+        week.shifts.push({ date: s.date, site: view.site.name, inAt: s.inAt, outAt: s.estimatedOut ? null : s.outAt, open: s.estimatedOut, mins: s.estimatedOut ? 0 : s.workedMins, fromBooking: s.method === 'booking', queried: s.status === 'queried' });
+      }
+      week.totalMins += mins;
+      week.sites.push({ name: view.site.name, clientName: view.site.clientName, status: view.timesheet.status, approvedAt: view.timesheet.approved_at, mins });
+    }
+    week.shifts.sort((a, b) => a.inAt.localeCompare(b.inAt));
+    return week;
+  });
+  return { weeks };
 }

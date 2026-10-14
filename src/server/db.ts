@@ -29,6 +29,9 @@ function migrate(db: DB) {
   add('agency', 'message_channel', "TEXT NOT NULL DEFAULT 'whatsapp'");
   add('outbox', 'status', "TEXT NOT NULL DEFAULT 'simulated'");
   add('outbox', 'error', 'TEXT');
+  add('clients', 'bookings_email', "TEXT NOT NULL DEFAULT ''");
+  add('sites', 'signin_mode', "TEXT NOT NULL DEFAULT 'signin'");
+  add('managers', 'role', "TEXT NOT NULL DEFAULT ''");
 }
 
 export function getDb(): DB {

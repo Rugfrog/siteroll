@@ -5,6 +5,7 @@ import { clock } from '../config';
 import { addDays, londonDate } from '../../shared/time';
 import { closeMissedSignOuts } from './attendance';
 import { deleteUpload } from './files';
+import { syncAllBookedHours } from './timesheets';
 import { agencyRow, runNoShowCheck, runSignoffSchedule } from './workflows';
 
 /** Delete selfies older than the agency's retention period (and card photos of people who've left). */
@@ -31,8 +32,9 @@ export function runPhotoRetention(db: DB): number {
 }
 
 export function runAllJobs(db: DB) {
-  const result = { noShows: 0, signoffs: 0, missed: 0, photos: 0 };
+  const result = { noShows: 0, signoffs: 0, missed: 0, photos: 0, bookedHours: 0 };
   try {
+    result.bookedHours = syncAllBookedHours(db);
     result.noShows = runNoShowCheck(db);
     result.signoffs = runSignoffSchedule(db);
     result.missed = closeMissedSignOuts(db);

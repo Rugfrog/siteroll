@@ -19,3 +19,19 @@ services:
         sync: false
       - key: ASK_DAILY_LIMIT
         value: "300"
+      # Invite-only (recommended): a long private password for the demo login. People you send an
+      # invite link to (Settings → Invite people) get in without it.
+      - key: AGENCY_PASSWORD
+        sync: false
+      # Real WhatsApp and texts (optional): see "WhatsApp" in the README.
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+      # Real email (optional): see "Email" in the README.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

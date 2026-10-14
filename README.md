@@ -6,7 +6,7 @@ Workers sign in and out by scanning a QR code (or tapping an NFC tag) on the sit
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Rugfrog/siteroll)
 
-**Share a public demo:** click the button above, sign in to Render with GitHub (free plan), and click **Deploy Blueprint**. After a few minutes you get a link like `https://siteroll-demo.onrender.com` that anyone can open, with nothing to install. It runs in demo mode with the demo login shown on the login page. On the free plan it goes to sleep after 15 minutes without visitors; the first visit after that takes about a minute to wake it, and the demo data reloads fresh.
+**Share a public demo:** click the button above, sign in to Render with GitHub (free plan), and click **Deploy Blueprint**. After a few minutes you get a link like `https://siteroll-demo.onrender.com` that anyone can open, with nothing to install. It runs in demo mode with the demo login shown on the login page. To keep it to people you invite, set a private `AGENCY_PASSWORD` (see [Invite-only demo](#invite-only-demo)). On the free plan it goes to sleep after 15 minutes without visitors; the first visit after that takes about a minute to wake it, and the demo data reloads fresh.
 
 **Headline features**
 
@@ -19,7 +19,11 @@ Workers sign in and out by scanning a QR code (or tapping an NFC tag) on the sit
   - workers reply SAFE in a fire roll call, or YES to grab a shift;
   - site managers reply APPROVE to sign off the week;
   - the office asks Ask SiteRoll questions by WhatsApp.
+- **Who approves the hours:** one click confirms a week's bookings to the client by email and asks who approves the hours (site manager, project manager or director). That person gets the hours each week by email, with a link that logs them straight in. No passwords.
+- **Timesheet-only sites** for clients who don't want sign-in on site: each booked day counts as a normal day, and the client approves the week or queries a day.
+- **Workers see their own hours** on their phone: this week and last, and whether the client has approved them.
 - Bookings and no-show alerts with replacements, compliance at the gate (CSCS/CPCS, inductions, right to work), timesheets with an edit history, and invoices, payroll and margins.
+- Real WhatsApp and texts through Twilio, real email through Resend, and an invite-only mode for a public demo.
 
 - **DEMO.md** has a 7-minute walkthrough for a sales meeting.
 - **PRIVACY.md** explains what's stored and why, for the agency's privacy notice.
@@ -88,6 +92,9 @@ Copy `.env.example` to `.env`. Everything is optional.
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | none | Your Twilio account, for real WhatsApp messages and texts |
 | `TWILIO_WHATSAPP_FROM` | none | The WhatsApp number to send from, e.g. `whatsapp:+14155238886` (Twilio's sandbox) |
 | `TWILIO_SMS_FROM` | none | A Twilio phone number for ordinary texts (optional; also the fallback when WhatsApp can't deliver) |
+| `RESEND_API_KEY` | none | Your Resend key, for real emails (see [Email](#email)) |
+| `EMAIL_FROM` | none | The address emails come from, on a domain you've verified with Resend, e.g. `timesheets@your-agency.co.uk` |
+| `AGENCY_PASSWORD` | none | Demo only: a private password for the demo login. Makes the demo invite-only (see [Invite-only demo](#invite-only-demo)) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | made automatically | Keys for fire alert notifications. Set them to keep phones subscribed if the database is ever replaced. |
 
 ---
@@ -134,21 +141,9 @@ SiteRoll is one Node.js process with an SQLite file, so a small server is plenty
 
 Platforms with a persistent disk (Render, Railway, Fly.io) also work. Mount the disk at `data/`.
 
-### Real texts and emails
+### Real texts, WhatsApp and emails
 
-Everything goes through one interface in `src/server/services/messaging.ts`. The demo's `SimulatedMessenger` writes to the Outbox table. To send for real, write a class with the same two methods and pass it to `setMessenger()` at start-up in `src/server/index.ts`. For example, for SMS with Twilio:
-
-```ts
-class TwilioMessenger extends SimulatedMessenger {
-  sms(msg: SmsMessage) {
-    super.sms(msg); // keep the Outbox as a log
-    // POST to https://api.twilio.com/2010-04-01/Accounts/<SID>/Messages.json
-    // with To=+44..., From=<your number>, Body=msg.body
-  }
-}
-```
-
-Email works the same way (Postmark, SendGrid, Amazon SES or plain SMTP).
+Every message goes through `src/server/services/messaging.ts` and is logged in the Outbox. WhatsApp and texts are sent for real once Twilio is set up (see [WhatsApp](#whatsapp)), and emails once Resend is (see [Email](#email)). Until then they're simulated, which is how the demo works. The demo's made-up numbers (07700 900xxx) and addresses (…@calder.example) are never sent for real.
 
 ### Payroll export columns
 
@@ -206,6 +201,54 @@ The sandbox only messages phones that have sent the join code, and WhatsApp only
 
 Incoming messages are checked against Twilio's signature, so nobody can fake a reply. The code is in `src/server/services/whatsappBot.ts` (the replies) and `src/server/services/twilio.ts` (sending).
 
+## Who approves the hours
+
+Each site has one or more people who approve its hours: a site manager, project manager, contracts manager or director. They never set up a password. Each week they get the hours by email (and by text or WhatsApp, if you have their mobile), with a link that logs them straight in to check, query and approve.
+
+The easiest way to find out who it is: on **Bookings**, press **Confirm with client** on a site. The client's bookings contact gets an email listing who's booked each day, with a link asking who approves the hours. They type in a name, email and role, and that's it:
+
+- the person they name is set up straight away, and gets an email explaining how it works;
+- they can send the hours to that person **instead of** whoever gets them now, or **as well**;
+- the agency gets an email saying who was named.
+
+Each site on the Bookings page shows who gets its hours (or "Nobody approves the hours yet"), and whether this week's bookings have been confirmed. You can still add or change people by hand in **Clients & sites**. The link in the email works for 30 days. A sign-off request won't go out for a site with nobody to approve it.
+
+## Timesheet-only sites
+
+Some clients don't want sign-in on their site. Set the site to **Timesheet only, no sign-in** (Clients & sites → the site → How are hours recorded?). Then:
+
+- each booked day counts from the site's start time to its usual finish, less the client's normal break, once the day has started;
+- cancelled days and no-shows come off again, but any day the agency has edited, or the client has queried, is left alone;
+- the client's approver gets the week as usual, with a note that the hours come from the booking, and queries any day that was different;
+- there are no no-show alerts, no live board and no fire roll call for that site (nobody signs in), and a worker who scans a poster there is told they don't need to sign in.
+
+The hours flow into invoices, payroll and margins like any other site's. The code is `syncBookedHours` in `src/server/services/timesheets.ts`.
+
+## Workers' own hours
+
+The sign-in page has a **Your hours** section: each day this week and last, the times, the total, and whether the client has approved the week. On a timesheet-only site it's the main thing they see. It's the best answer to "why should I bother?": it's their proof if they're ever short-paid.
+
+## Email
+
+Emails (sign-off requests, booking confirmations, login links, invoices with the PDF attached) are sent through [Resend](https://resend.com):
+
+1. Sign up at resend.com and add your domain (e.g. `your-agency.co.uk`). Resend shows a few DNS records to add at your domain registrar; once they're added, the domain shows as verified. Until a domain is verified, Resend only lets you send test emails to your own address.
+2. Create an API key.
+3. Set `RESEND_API_KEY` and `EMAIL_FROM` (an address on your verified domain, e.g. `timesheets@your-agency.co.uk`) in `.env`, or in Render under **Environment**, and restart.
+4. In **Settings → Email**, send yourself a test email.
+
+Emails come from the agency's name, replies go to the agency's own email address, and each email has a plain-text version and a simple branded HTML version with the link as a button.
+
+## Invite-only demo
+
+A public demo link with the demo login on the login page lets anyone in, and anyone can ask Ask SiteRoll questions on your API key. To keep it to people you invite:
+
+1. Set `AGENCY_PASSWORD` on the server (in Render: the service's **Environment** page) to a long private password. The login page stops showing the demo login, and `demo1234` no longer works. You log in as `office@pennine.example` with your private password.
+2. In **Settings → Invite people**, type a name, choose how long the link should work (7, 30 or 90 days) and press **Make an invite link**. Send them the link: it logs them straight in.
+3. To cancel every invite link at once, change `AGENCY_PASSWORD`.
+
+Invite links are signed rather than stored, so they keep working when the free Render plan restarts and reloads the demo data. Workers' sign-in pages, fire alarm links, the client's sign-off links and "who approves the hours?" links all keep working without a login, because those people never log in.
+
 ## Office TV
 
 **Office TV** in the menu (or `/wall`) is a full-screen live view for the office telly. It shows:
@@ -251,6 +294,8 @@ tests/         Vitest tests, including an end-to-end API test
 - Every request is checked on the server: site managers only ever see their own sites, and pay rates and card photos are agency-only. All input is validated on the server.
 - The geofence check happens **on the server**. The browser only sends its raw reading.
 - Security headers include a strict Content-Security-Policy in production and `Referrer-Policy: no-referrer`, so tokens in links can't leak.
+- Links for people who don't log in expire: login links after 7 days, sign-off links after 14, "who approves the hours?" links after 30. Invite links (invite-only demo) are signed with a key derived from `AGENCY_PASSWORD` and expire after the time chosen.
+- Incoming WhatsApp messages are checked against Twilio's signature, so nobody can fake a reply.
 
 ### Can GPS be faked?
 
@@ -272,6 +317,8 @@ Yes. Someone determined can fake a phone's location with a fake-GPS app or brows
 - **Rounding:** each client can round sign-in and sign-out times to the nearest 5, 10 or 15 minutes. The demo clients use 15.
 - **Breaks:** if the worker skips the question, the client's default break applies, but only on shifts longer than the client's threshold (6 hours in the demo).
 - **One invoice per client per week,** covering all their approved sites. VAT is worked out once on the invoice total.
+- **Timesheet-only hours** count from the site's start time to its usual finish, less the client's normal break, for each booked day once it has started. The approver queries any day that was different; the agency edits it, with a reason, like any other entry.
+- **Naming who approves the hours** replaces the current approver for that site by default (the client can choose "as well" instead). People who are replaced keep any other sites they approve.
 - **Payroll** includes only hours the client has approved.
 - **Site managers** see only the sites they're assigned to, not every site their company has.
 - **Unknown numbers:** a worker entering an unregistered number is told so, to save confusion at the gate. It's rate-limited, but it does show whether a number is registered.

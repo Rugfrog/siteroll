@@ -3,6 +3,7 @@ import { api, fileToJpeg, useApi } from '../api';
 import { useMe } from '../App';
 import { Icon } from '../icons';
 import { ActionButton, Card, ErrorBox, Field, Loading, PageHead, useToast } from '../ui';
+import { fmtDateTime } from '../../shared/format';
 
 export default function Settings() {
   const state = useApi<any>('/api/agency');
@@ -151,7 +152,9 @@ export default function Settings() {
               </div>
             </div>
           </Card>
+          <InviteSettings />
           <WhatsAppSettings />
+          <EmailSettings />
           <Card title="Agency staff">
             <ul className="list">
               {f.users.map((u: any) => (
@@ -180,6 +183,119 @@ function readAsDataUrl(file: File): Promise<string> {
     r.onerror = () => reject(new Error("Couldn't read that file"));
     r.readAsDataURL(file);
   });
+}
+
+/** Stops Enter in a small input submitting the whole settings form. */
+const noSubmit = (e: React.KeyboardEvent) => {
+  if (e.key === 'Enter') e.preventDefault();
+};
+
+function InviteSettings() {
+  const { me } = useMe();
+  const toast = useToast();
+  const [name, setName] = useState('');
+  const [days, setDays] = useState('30');
+  const [link, setLink] = useState<{ url: string; expires: string; name: string } | null>(null);
+  if (!me.demoMode) return null;
+  return (
+    <section className="card" id="invites">
+      <div className="card-head">
+        <div>
+          <h2>Invite people</h2>
+          <p>Who can get into this demo.</p>
+        </div>
+        <span className={`badge ${me.inviteOnly ? 'badge-green' : 'badge-amber'}`}>{me.inviteOnly ? 'Invite-only' : 'Open to anyone'}</span>
+      </div>
+      <div className="card-pad stack" style={{ gap: 14 }}>
+        {me.inviteOnly ? (
+          <>
+            <p className="small muted" style={{ margin: 0 }}>
+              Send someone a link and they go straight in as the demo office login. Each link stops working after the time you choose. To cancel every link at once, change <code>AGENCY_PASSWORD</code>.
+            </p>
+            <div className="form-grid">
+              <Field label="Who's it for">
+                <input className="input" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={noSubmit} placeholder="e.g. Oliver" maxLength={60} />
+              </Field>
+              <Field label="Works for">
+                <select className="select" value={days} onChange={(e) => setDays(e.target.value)}>
+                  <option value="7">7 days</option>
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                </select>
+              </Field>
+            </div>
+            <ActionButton
+              type="button"
+              className="btn btn-primary btn-sm"
+              disabled={!name.trim()}
+              onClick={async () => {
+                const r = await api.post('/api/invites', { name: name.trim(), days: Number(days) });
+                setLink({ ...r, name: name.trim() });
+              }}
+            >
+              Make an invite link
+            </ActionButton>
+            {link && (
+              <Field label={`Invite link for ${link.name}`} hint={`works until ${fmtDateTime(link.expires)}`}>
+                <div className="row" style={{ flexWrap: 'nowrap' }}>
+                  <input className="input" readOnly value={link.url} onFocus={(e) => e.target.select()} style={{ fontFamily: 'monospace', fontSize: '.8rem' }} />
+                  <button type="button" className="btn btn-sm" onClick={() => navigator.clipboard?.writeText(link.url).then(() => toast('Copied'))}>
+                    Copy
+                  </button>
+                </div>
+              </Field>
+            )}
+          </>
+        ) : (
+          <p className="small" style={{ margin: 0 }}>
+            Anyone with this site's address can log in with the demo login shown on the login page. To make it invite-only, set a private <code>AGENCY_PASSWORD</code> (see the README). You then log in with that, and everyone else gets an invite link from here.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function EmailSettings() {
+  const state = useApi<any>('/api/email/status');
+  const toast = useToast();
+  const [to, setTo] = useState('');
+  const d = state.data;
+  if (!d) return null;
+  return (
+    <section className="card" id="email">
+      <div className="card-head">
+        <div>
+          <h2>Email</h2>
+          <p>Sign-off requests, booking confirmations, login links and invoices.</p>
+        </div>
+        <span className={`badge ${d.connected ? 'badge-green' : 'badge-amber'}`}>{d.connected ? 'Connected' : 'Simulated'}</span>
+      </div>
+      <div className="card-pad stack" style={{ gap: 14 }}>
+        <div className="small">Sent from: {d.connected ? <strong>{d.from}</strong> : <span className="muted">not connected</span>}</div>
+        {!d.connected && (
+          <div className="note-box small">
+            To send real emails, sign up at resend.com, verify your domain, and add <code>RESEND_API_KEY</code> and <code>EMAIL_FROM</code> (see the README). Until then, emails are simulated in the Outbox. The made-up demo addresses (…@calder.example) are never sent.
+          </div>
+        )}
+        <Field label="Send a test email">
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <input className="input" type="email" placeholder="you@your-agency.co.uk" value={to} onChange={(e) => setTo(e.target.value)} onKeyDown={noSubmit} />
+            <ActionButton
+              type="button"
+              className="btn btn-sm"
+              onClick={async () => {
+                const r = await api.post('/api/email/test', { to });
+                toast(r.simulated ? 'Test recorded in the Outbox (simulated)' : 'Test sent. Check your inbox.');
+              }}
+            >
+              Send test
+            </ActionButton>
+          </div>
+        </Field>
+      </div>
+    </section>
+  );
 }
 
 function WhatsAppSettings() {

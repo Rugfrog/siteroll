@@ -11,10 +11,19 @@ export function liveBoard(db: DB, siteIds: number[] | null) {
   const today = londonDate(clock.now());
   const rows = db
     .prepare('SELECT s.*, c.name AS client_name FROM sites s JOIN clients c ON c.id = s.client_id WHERE s.active = 1 ORDER BY c.name, s.name')
-    .all() as { id: number; name: string; client_name: string; client_id: number; start_time: string; finish_time: string; address: string; postcode: string }[];
+    .all() as { id: number; name: string; client_name: string; client_id: number; start_time: string; finish_time: string; address: string; postcode: string; signin_mode: string }[];
   const sites = rows
     .filter((s) => siteIds === null || siteIds.includes(s.id))
     .map((s) => {
+      // No sign-in on timesheet-only sites: show who's booked instead of who's on site.
+      const timesheetOnly = s.signin_mode === 'timesheet';
+      const bookedToday = timesheetOnly
+        ? (
+            db
+              .prepare("SELECT w.first_name, w.last_name, w.trade FROM bookings b JOIN workers w ON w.id = b.worker_id WHERE b.site_id = ? AND b.date = ? AND b.status = 'booked' ORDER BY w.last_name")
+              .all(s.id, today) as { first_name: string; last_name: string; trade: string }[]
+          ).map((b) => ({ name: `${b.first_name} ${b.last_name}`, trade: b.trade }))
+        : [];
       const onSite = db
         .prepare(
           `SELECT a.id AS attendanceId, a.worker_id AS workerId, a.in_at AS inAt, a.flags, a.method, a.selfie_path, w.first_name, w.last_name, w.trade, w.card_expiry
@@ -23,7 +32,7 @@ export function liveBoard(db: DB, siteIds: number[] | null) {
         )
         .all(s.id) as { attendanceId: number; workerId: number; inAt: string; flags: string; method: string; selfie_path: string | null; first_name: string; last_name: string; trade: string; card_expiry: string | null }[];
       const signedOut = (db.prepare('SELECT COUNT(*) AS n FROM attendance WHERE site_id = ? AND work_date = ? AND out_at IS NOT NULL').get(s.id, today) as { n: number }).n;
-      const expected = db
+      const expected = (timesheetOnly ? [] : db
         .prepare(
           `SELECT b.id AS bookingId, b.worker_id AS workerId, w.first_name, w.last_name, w.trade,
              (SELECT 1 FROM alerts al WHERE al.booking_id = b.id AND al.type = 'no_show' AND al.resolved_at IS NULL) AS noShow
@@ -32,7 +41,7 @@ export function liveBoard(db: DB, siteIds: number[] | null) {
              AND NOT EXISTS (SELECT 1 FROM attendance a WHERE a.worker_id = b.worker_id AND a.work_date = b.date)
            ORDER BY w.last_name`,
         )
-        .all(s.id, today) as { bookingId: number; workerId: number; first_name: string; last_name: string; trade: string; noShow: number | null }[];
+        .all(s.id, today)) as { bookingId: number; workerId: number; first_name: string; last_name: string; trade: string; noShow: number | null }[];
       const pending = db
         .prepare(
           `SELECT t.id, t.action, t.at, t.distance_m AS distanceM, t.accuracy, w.first_name, w.last_name, w.trade
@@ -46,6 +55,8 @@ export function liveBoard(db: DB, siteIds: number[] | null) {
         address: `${s.address}, ${s.postcode}`,
         startTime: s.start_time,
         finishTime: s.finish_time,
+        mode: timesheetOnly ? ('timesheet' as const) : ('signin' as const),
+        bookedToday,
         onSite: onSite.map((p) => ({
           attendanceId: p.attendanceId,
           workerId: p.workerId,

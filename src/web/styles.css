@@ -2737,3 +2737,51 @@ body.wall-body {
     border-radius: 16px;
   }
 }
+
+/* ---------- Pages opened from an email link, without logging in ---------- */
+.public-page {
+  min-height: 100vh;
+  background: var(--paper);
+}
+.public-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.public-body {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+.public-body h1 {
+  font-size: 1.75rem;
+}
+.tick-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 99px;
+  background: var(--green);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.tick-circle svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Bookings: who approves each site's hours, and the confirmation button */
+.site-approval {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  margin-top: 8px;
+}
+.site-approval .btn {
+  font-weight: 600;
+}

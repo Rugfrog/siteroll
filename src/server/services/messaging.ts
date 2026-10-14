@@ -1,10 +1,11 @@
 // Every text, WhatsApp message and email goes through here. Each one is recorded in the Outbox.
 // Messages to phones go by WhatsApp first (unless the agency prefers texts, or the person replied
-// STOP), falling back to an ordinary text. They're only really sent when Twilio is set up;
-// otherwise they're simulated, which is how the demo works.
+// STOP), falling back to an ordinary text. They're only really sent when Twilio is set up, and
+// emails only when Resend is; otherwise they're simulated, which is how the demo works.
 import { getDb, nowIso } from '../db';
 import { clock } from '../config';
 import { isFictional, twilioReady, twilioSend, type PhoneChannel } from './twilio';
+import { emailHtml, emailReady, isFictionalEmail, resendSend } from './email';
 
 export type MessageKind =
   | 'code'
@@ -21,6 +22,8 @@ export type MessageKind =
   | 'offer'
   | 'chat'
   | 'test'
+  | 'booking'
+  | 'approver'
   | 'other';
 
 export interface SmsMessage {
@@ -35,6 +38,10 @@ export interface SmsMessage {
 
 export interface EmailMessage extends SmsMessage {
   subject: string;
+  /** The button text for `link` in the HTML version, e.g. "Check and approve the hours". */
+  linkLabel?: string;
+  /** Attach this invoice as a PDF (only when really sending; the Outbox link opens it). */
+  attachInvoiceId?: number;
 }
 
 export interface Messenger {
@@ -44,6 +51,7 @@ export interface Messenger {
 
 /** Swapped out in tests so nothing goes over the network. */
 export const transportDeps = { send: twilioSend };
+export const emailTransportDeps = { send: resendSend };
 
 /** Which channel to use for this phone: WhatsApp unless the agency prefers texts or they opted out. */
 export function phoneChannel(to: string): PhoneChannel {
@@ -89,6 +97,36 @@ async function deliver(id: number, channel: PhoneChannel, msg: SmsMessage) {
   }
 }
 
+async function deliverEmail(id: number, msg: EmailMessage) {
+  try {
+    const db = getDb();
+    const a = db.prepare('SELECT name, email, brand_colour FROM agency WHERE id = 1').get() as { name: string; email: string; brand_colour: string } | undefined;
+    const agencyName = a?.name ?? 'SiteRoll';
+    const attachments: { filename: string; content: Buffer }[] = [];
+    if (msg.attachInvoiceId) {
+      // Loaded here rather than at the top, so the PDF code isn't pulled into every import of this file.
+      const { invoicePdf } = await import('../pdf/documents');
+      const inv = db.prepare('SELECT number FROM invoices WHERE id = ?').get(msg.attachInvoiceId) as { number: string } | undefined;
+      if (inv) attachments.push({ filename: `${inv.number}.pdf`, content: await invoicePdf(db, msg.attachInvoiceId) });
+    }
+    await emailTransportDeps.send({
+      to: msg.to,
+      toName: msg.toName,
+      subject: msg.subject,
+      text: msg.body,
+      html: emailHtml(msg.body, { agencyName, colour: a?.brand_colour ?? '#0e6655', link: msg.link, linkLabel: msg.linkLabel }),
+      // Replies go to the agency's office, not to SiteRoll.
+      replyTo: a?.email && !isFictionalEmail(a.email) ? a.email : undefined,
+      fromName: agencyName,
+      attachments,
+    });
+    setStatus(id, 'sent');
+  } catch (e) {
+    setStatus(id, 'failed', (e as Error).message);
+    console.error(`Email to ${msg.to} failed:`, (e as Error).message);
+  }
+}
+
 export class OutboxMessenger implements Messenger {
   sms(msg: SmsMessage) {
     const channel = msg.channel ?? phoneChannel(msg.to);
@@ -98,8 +136,10 @@ export class OutboxMessenger implements Messenger {
     if (real) void deliver(id, channel, msg);
   }
   email(msg: EmailMessage) {
-    // Email isn't connected to a provider yet: recorded in the Outbox only.
-    record('email', msg, msg.subject, 'simulated');
+    // Made-up demo addresses (…@calder.example) are never sent for real.
+    const real = emailReady() && !isFictionalEmail(msg.to);
+    const id = record('email', msg, msg.subject, real ? 'sending' : 'simulated');
+    if (real) void deliverEmail(id, msg);
   }
 }
 

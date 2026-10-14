@@ -54,9 +54,9 @@ describe('Ask SiteRoll tools', () => {
     expect(T.getCompliance(db).items.some((i) => i.worker === 'Kyle Dyson' && i.status === 'expired')).toBe(true);
     const inv = T.getInvoices(db, 'overdue');
     expect(inv.invoices.every((i) => i.status === 'overdue')).toBe(true);
-    expect(T.getLiveBoard(db).sites).toHaveLength(3);
+    expect(T.getLiveBoard(db).sites).toHaveLength(4); // including the timesheet-only site
     const m = T.getMargins(db, 6, 'client');
-    expect(m.rows.map((r) => r.name).sort()).toEqual(['Calder Construction Ltd', 'Colne Valley Developments']);
+    expect(m.rows.map((r) => r.name).sort()).toEqual(['Calder Construction Ltd', 'Colne Valley Developments', 'Shepley Homes Ltd']);
     // Just last week, which must match that week's timesheets.
     const last = T.getMargins(db, 6, 'site', '2026-10-07');
     expect(last.period).toContain('Mon 5 Oct');

@@ -13,6 +13,7 @@ import { agencyRow } from '../services/workflows';
 import { cardStatus, type ClientRow, type SiteRow, type WorkerRow } from '../services/rules';
 import { alarmForToken, alarmForWorker, AlarmError, markFromPhone, type AlarmInfo } from '../services/firealarm';
 import { hasSubscription, saveSubscription, vapidKeys } from '../services/push';
+import { workerHours } from '../services/timesheets';
 
 export const codeLimiterPhone = new RateLimiter(3, 15 * 60000);
 export const codeLimiterIp = new RateLimiter(10, 15 * 60000);
@@ -73,6 +74,7 @@ workerRouter.get('/site/:token', (req, res) => {
       selfieRequired: !!client.selfie_required,
       breakDefault: client.break_default_mins,
       blocksExpiredCards: client.compliance_mode === 'block',
+      signinMode: site.signin_mode,
     },
     agency: { name: agency.name, phone: agency.phone, colour: agency.brand_colour, hasLogo: !!agency.logo_path },
     worker,
@@ -144,6 +146,13 @@ workerRouter.post('/sign', (req, res) => {
       ? signIn(db, { ...input, selfie: typeof req.body?.selfie === 'string' ? req.body.selfie : null })
       : signOut(db, { ...input, breakMins: req.body?.breakMins === null || req.body?.breakMins === undefined ? null : Number(req.body.breakMins) });
   res.status(result.status === 'error' ? 400 : 200).json(result);
+});
+
+/** The worker's own hours this week and last, as the sites' timesheets have them. */
+workerRouter.get('/hours', (req, res) => {
+  const workerId = deviceWorker(req);
+  if (!workerId) return res.status(401).json({ error: 'This phone needs to be set up first' });
+  res.json(workerHours(getDb(), workerId));
 });
 
 workerRouter.post('/manual', (req, res) => {

@@ -158,6 +158,7 @@ const FLAG_INFO: Record<string, { label: string; tone: string }> = {
   moved_site: { label: 'Moved site', tone: 'amber' },
   estimated: { label: 'Still on site', tone: 'blue' },
   after_approval: { label: 'After sign-off', tone: 'red' },
+  booked_hours: { label: 'From booking', tone: 'blue' },
 };
 
 export function FlagBadge({ flag }: { flag: string }) {

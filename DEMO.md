@@ -6,7 +6,7 @@ For a meeting with a labour agency owner. You need a laptop and your own phone.
 
 ## 10 minutes before the meeting
 
-1. On the laptop, open your SiteRoll link and click **Log in** (the demo login is filled in).
+1. On the laptop, open your SiteRoll link and log in. Locally the demo login is filled in. On an invite-only public link, log in as `office@pennine.example` with your private password (anyone you've sent an invite link to goes straight in).
 2. Click **Reset demo** in the dark strip at the top. Everything is fresh and dated today, and you stay logged in.
 3. Go to **Clients & sites → Woodhouse Gardens, Brighouse → Poster**. Leave this tab open: it's the "site board".
 4. **Set up your phone as Callum, the labourer.** Scan the poster with your phone's camera and open the link.
@@ -112,6 +112,10 @@ Back to the **Office TV**.
 ---
 
 ## If they ask to see more
+
+- **"My clients won't want sign-in on their site."** Open **Clients & sites → Penistone Road Barns, Shepley**: it's set to **Timesheet only**. Each booked day counts as a normal day, and the client approves the week by email or queries a day. On **On site now** it shows who's booked instead of who's signed in.
+- **Who approves the hours:** on **Bookings**, Shepley says "Nobody approves the hours yet". Press **Confirm with client** → **Send confirmation**, then in the **Outbox** open the email to Jo Ramsden and tap the link. Type a name and email, pick a role, and press **Send the hours to this person**. They're set up, with no password, and the agency is told. Now **Timesheets** → last week's Shepley sheet → send it for approval.
+- **Workers' hours:** on the worker's phone, open **Your hours** under the Sign in button: this week and last, and whether the client has approved them.
 
 - **Compliance:** Kyle Dyson's card has expired. On Colne Valley's site (set to block), his phone tells him he can't sign in. On Calder's sites (set to warn), he's let in, flagged, and you're alerted.
 - **Selfie:** Colne Valley's Marsden site asks for one. See **Clients & sites → Rules**.

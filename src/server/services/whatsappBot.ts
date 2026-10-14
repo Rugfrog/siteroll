@@ -14,7 +14,7 @@ import type { PhoneChannel } from './twilio';
 import { alarmForWorker, AlarmError, markFromPhone } from './firealarm';
 import { approveTimesheet, getTimesheetView, TimesheetError, type TimesheetRow } from './timesheets';
 import { liveBoard } from './board';
-import { agencyRow, availableReplacements, createMagicLink, sendReplacement } from './workflows';
+import { agencyRow, arrivalNote, availableReplacements, createMagicLink, sendReplacement } from './workflows';
 import { askDeps, runAsk, type AskTurn } from './ask';
 import { notify } from './events';
 import { fullName, type SiteRow, type WorkerRow } from './rules';
@@ -161,7 +161,7 @@ export async function handleIncoming(db: DB, msg: Incoming): Promise<string> {
       db.prepare("UPDATE job_offers SET status = 'won', responded_at = ? WHERE id = ?").run(now, offer.id);
       db.prepare("UPDATE job_offers SET status = 'filled' WHERE alert_id = ? AND status = 'open' AND id != ?").run(offer.alert_id, offer.id);
       const s = r.site!;
-      reply(`👍 It's yours, ${first}. Get to *${s.name}* today: ${s.address}, ${s.postcode}. Report to the site cabin and scan the SiteRoll board to sign in. Thanks, ${agency.name}`);
+      reply(`👍 It's yours, ${first}. Get to *${s.name}* today: ${s.address}, ${s.postcode}. ${arrivalNote(s)} Thanks, ${agency.name}`);
       return done('offer-yes');
     }
   }

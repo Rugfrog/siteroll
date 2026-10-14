@@ -15,6 +15,9 @@ import { notify } from '../services/events';
 import { send } from '../services/messaging';
 import { cardStatus, fullName, type ClientRow, type SiteRow, type WorkerRow } from '../services/rules';
 import { agencyRow, availableReplacements, runNoShowCheck, runSignoffSchedule, runtime, sendLoginLink, sendReplacement } from '../services/workflows';
+import { confirmBookings, ROLES, siteApprovers } from '../services/confirmations';
+import { emailReady, isFictionalEmail } from '../services/email';
+import { createInvite } from '../services/invites';
 import { DEMO_LOGIN, seed } from '../seed';
 import { codeLimiterIp, codeLimiterPhone } from './worker';
 
@@ -181,6 +184,7 @@ function clientFields(b: Record<string, unknown>) {
     name: v.str(b.name, 'Client name', 120),
     address: v.str(b.address, 'Address', 300, { required: false }),
     billing_email: v.email(b.billing_email, 'Billing email'),
+    bookings_email: v.email(b.bookings_email, 'Bookings email'),
     break_default_mins: v.int(b.break_default_mins, 'Default break', 0, 120),
     break_after_mins: v.int(b.break_after_mins, 'Break applies after', 0, 720),
     ot_daily_mins: v.intOrNull(b.ot_daily_mins, 'Daily overtime threshold', 60, 1440),
@@ -219,12 +223,13 @@ function saveManager(id: number | null, b: Record<string, unknown>) {
   const phone = phoneRaw ? normaliseMobile(phoneRaw) : '';
   if (phone === null) throw new ValidationError('Please enter a UK mobile number');
   if (!email && !phone) throw new ValidationError('Enter an email or mobile number so we can send their login link');
+  const role = b.role ? v.oneOf(b.role, 'role', ROLES) : '';
   const siteIds = Array.isArray(b.siteIds) ? b.siteIds.map((s) => v.id(s, 'site')) : [];
   const ownSites = new Set((db.prepare('SELECT id FROM sites WHERE client_id = ?').all(clientId) as { id: number }[]).map((r) => r.id));
   if (siteIds.some((s) => !ownSites.has(s))) throw new ValidationError("A manager can only see their own company's sites");
   db.transaction(() => {
-    if (id) db.prepare('UPDATE managers SET client_id = ?, name = ?, email = ?, phone = ?, active = ? WHERE id = ?').run(clientId, name, email, phone, b.active === false ? 0 : 1, id);
-    else id = Number(db.prepare('INSERT INTO managers (client_id, name, email, phone) VALUES (?,?,?,?)').run(clientId, name, email, phone).lastInsertRowid);
+    if (id) db.prepare('UPDATE managers SET client_id = ?, name = ?, email = ?, phone = ?, role = ?, active = ? WHERE id = ?').run(clientId, name, email, phone, role, b.active === false ? 0 : 1, id);
+    else id = Number(db.prepare('INSERT INTO managers (client_id, name, email, phone, role) VALUES (?,?,?,?,?)').run(clientId, name, email, phone, role).lastInsertRowid);
     db.prepare('DELETE FROM manager_sites WHERE manager_id = ?').run(id);
     for (const s of siteIds) db.prepare('INSERT INTO manager_sites (manager_id, site_id) VALUES (?,?)').run(id, s);
     if (b.active === false) db.prepare("DELETE FROM sessions WHERE user_type = 'manager' AND user_id = ?").run(id);
@@ -252,6 +257,7 @@ function siteFields(b: Record<string, unknown>) {
     radius_m: v.int(b.radius_m, 'Geofence radius', 50, 1000),
     start_time: v.time(b.start_time, 'Start time'),
     finish_time: v.time(b.finish_time, 'Finish time'),
+    signin_mode: v.oneOf(b.signin_mode ?? 'signin', 'how hours are recorded', ['signin', 'timesheet'] as const),
     active: b.active === undefined ? 1 : v.bool(b.active) ? 1 : 0,
   };
 }
@@ -327,7 +333,26 @@ adminRouter.get('/bookings', (req, res) => {
        FROM bookings b JOIN workers w ON w.id = b.worker_id WHERE b.date BETWEEN ? AND ? AND b.status != 'cancelled' ORDER BY w.last_name`,
     )
     .all(week, days[6]) as { id: number; workerId: number; siteId: number; date: string; status: string; first_name: string; last_name: string; trade: string }[];
-  const sites = db.prepare('SELECT s.id, s.name, c.name AS clientName FROM sites s JOIN clients c ON c.id = s.client_id WHERE s.active = 1 ORDER BY c.name, s.name').all();
+  const sites = (
+    db
+      .prepare(
+        `SELECT s.id, s.name, s.signin_mode AS mode, c.id AS clientId, c.name AS clientName, c.bookings_email AS bookingsEmail
+         FROM sites s JOIN clients c ON c.id = s.client_id WHERE s.active = 1 ORDER BY c.name, s.name`,
+      )
+      .all() as { id: number }[]
+  ).map((s) => ({
+    ...s,
+    // Who gets the hours to approve, and whether this week's bookings have been confirmed to the client.
+    approvers: siteApprovers(db, s.id).map((m) => ({ name: m.name, role: m.role })),
+    confirmation:
+      db
+        .prepare(
+          `SELECT bc.sent_to AS sentTo, bc.sent_at AS sentAt, bc.answered_at AS answeredAt, m.name AS approverName
+           FROM booking_confirmations bc LEFT JOIN managers m ON m.id = bc.approver_id
+           WHERE bc.site_id = ? AND bc.week_start = ? ORDER BY bc.id DESC LIMIT 1`,
+        )
+        .get(s.id, week) ?? null,
+  }));
   const today = londonDate(clock.now());
   const workers = (db.prepare('SELECT * FROM workers WHERE active = 1 ORDER BY last_name').all() as WorkerRow[]).map((w) => ({
     id: w.id,
@@ -363,6 +388,16 @@ adminRouter.post('/bookings', (req, res) => {
   })();
   notify({ type: 'attendance', siteId });
   res.json({ ok: true });
+});
+
+/** Email the client this week's bookings for a site, asking who approves the hours. */
+adminRouter.post('/bookings/confirm', (req, res) => {
+  const db = getDb();
+  const siteId = v.id(req.body?.siteId, 'site');
+  const weekStart = mondayOf(v.date(req.body?.week, 'week'));
+  const email = v.email(req.body?.email, 'Email', { required: true });
+  const name = v.str(req.body?.name, 'Name', 80, { required: false });
+  res.json(confirmBookings(db, { siteId, weekStart, email, name, by: actorName(req.user!) }));
 });
 
 adminRouter.delete('/bookings/:id', (req, res) => {
@@ -452,6 +487,34 @@ adminRouter.post('/agency/logo', (req, res) => {
   }
   deleteUpload(old);
   res.json({ ok: true });
+});
+
+/* ---------------- Email ---------------- */
+
+adminRouter.get('/email/status', (_req, res) => {
+  res.json({ connected: emailReady(), provider: 'Resend', from: config.email.from });
+});
+
+adminRouter.post('/email/test', (req, res) => {
+  const to = v.email(req.body?.to, 'Email', { required: true });
+  const a = agencyRow(getDb());
+  send.email({
+    to,
+    kind: 'test',
+    subject: 'SiteRoll test email',
+    body: `This is a test email from SiteRoll for ${a.name}.\n\nIf you're reading it in your inbox (not spam), emails are working.`,
+  });
+  res.json({ ok: true, simulated: !emailReady() || isFictionalEmail(to) });
+});
+
+/* ---------------- Invites (invite-only demo) ---------------- */
+
+adminRouter.post('/invites', (req, res) => {
+  if (!config.demoMode || !config.inviteOnly) return res.status(400).json({ error: 'Invite links are for an invite-only demo (set AGENCY_PASSWORD).' });
+  const name = v.str(req.body?.name, 'Who is it for', 60);
+  const days = v.int(req.body?.days ?? 30, 'Days', 1, 90);
+  const inv = createInvite(name, days);
+  res.json({ url: `${runtime.baseUrl}/invite/${inv.token}`, expires: inv.expires.toISOString() });
 });
 
 /* ---------------- Outbox ---------------- */

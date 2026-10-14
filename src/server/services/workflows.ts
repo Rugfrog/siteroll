@@ -60,7 +60,16 @@ export function sendLoginLink(db: DB, managerId: number): boolean {
   if (!m) return false;
   const link = createMagicLink(db, m.id, 'login');
   const agency = agencyRow(db);
-  if (m.email) send.email({ to: m.email, toName: m.name, kind: 'magic_link', subject: `Your SiteRoll login link`, body: `Hi ${m.name.split(' ')[0]},\n\nTap the link below to open SiteRoll. It works for 7 days and logs you in on this device. No password needed.\n\n${link}\n\n${agency.name}`, link });
+  if (m.email)
+    send.email({
+      to: m.email,
+      toName: m.name,
+      kind: 'magic_link',
+      subject: `Your SiteRoll login link`,
+      body: `Hi ${m.name.split(' ')[0]},\n\nTap the link below to open SiteRoll. It works for 7 days and logs you in on this device. No password needed.\n\n${link}\n\n${agency.name}`,
+      link,
+      linkLabel: 'Open SiteRoll',
+    });
   if (m.phone) send.sms({ to: m.phone, toName: m.name, kind: 'magic_link', body: `${agency.name}: your SiteRoll login link ${link}`, link });
   return true;
 }
@@ -79,7 +88,14 @@ export function sendSignoffRequest(db: DB, timesheetId: number): { sent: number;
   const managers = db
     .prepare('SELECT m.* FROM managers m JOIN manager_sites ms ON ms.manager_id = m.id WHERE ms.site_id = ? AND m.active = 1')
     .all(site.id) as { id: number; name: string; email: string; phone: string }[];
+  if (!managers.length) {
+    throw new TimesheetError('Nobody approves the hours for this site yet. Confirm the bookings with the client to ask who (Bookings page), or add them in Clients & sites.');
+  }
   const headline = `${client.name} – ${site.name}: ${workers} worker${workers === 1 ? '' : 's'}, ${hours.toLocaleString('en-GB')} hours this week (w/c ${fmtDay(ts.week_start)}). Review and approve.`;
+  const fromBooking =
+    site.signin_mode === 'timesheet'
+      ? `\n\nThere's no sign-in on this site, so each booked day counts from ${site.start_time} to ${site.finish_time}, less the normal break. If anyone did different hours, query that day and tell us.`
+      : '';
   for (const m of managers) {
     const link = createMagicLink(db, m.id, 'signoff', ts.id);
     if (m.phone) send.sms({ to: m.phone, toName: m.name, kind: 'signoff', body: `${headline}\n\nReply APPROVE to approve them, or check them first: ${link}`, link });
@@ -89,8 +105,9 @@ export function sendSignoffRequest(db: DB, timesheetId: number): { sent: number;
         toName: m.name,
         kind: 'signoff',
         subject: `Timesheet to approve: ${site.name}, w/c ${fmtDay(ts.week_start)}`,
-        body: `Hi ${m.name.split(' ')[0]},\n\n${headline}\n\n${link}\n\nYou can approve everything in one tap, or query any entry and we'll look into it.\n\n${agencyRow(db).name}`,
+        body: `Hi ${m.name.split(' ')[0]},\n\n${headline}${fromBooking}\n\n${link}\n\nYou can approve everything in one tap, or query any entry and we'll look into it. No password needed.\n\n${agencyRow(db).name}`,
         link,
+        linkLabel: 'Check and approve the hours',
       });
   }
   db.prepare("UPDATE timesheets SET status = CASE WHEN status = 'queried' THEN 'sent' ELSE 'sent' END, signoff_sent_at = ? WHERE id = ?").run(nowIso(clock.now()), ts.id);
@@ -129,7 +146,10 @@ export function runNoShowCheck(db: DB): number {
   const now = clock.now();
   const today = londonDate(now);
   const bookings = db
-    .prepare("SELECT b.id AS bookingId, b.worker_id AS workerId, b.site_id AS siteId, b.date, s.start_time AS siteStartTime FROM bookings b JOIN sites s ON s.id = b.site_id WHERE b.date = ? AND b.status = 'booked'")
+    // Timesheet-only sites have no sign-in, so nobody there can be a no-show.
+    .prepare(
+      "SELECT b.id AS bookingId, b.worker_id AS workerId, b.site_id AS siteId, b.date, s.start_time AS siteStartTime FROM bookings b JOIN sites s ON s.id = b.site_id WHERE b.date = ? AND b.status = 'booked' AND s.signin_mode != 'timesheet'",
+    )
     .all(today) as { bookingId: number; workerId: number; siteId: number; date: string; siteStartTime: string }[];
   const signedIn = new Set((db.prepare('SELECT DISTINCT worker_id FROM attendance WHERE work_date = ?').all(today) as { worker_id: number }[]).map((r) => r.worker_id));
   const alerted = new Set((db.prepare("SELECT booking_id FROM alerts WHERE type = 'no_show' AND date = ?").all(today) as { booking_id: number }[]).map((r) => r.booking_id));
@@ -144,6 +164,11 @@ export function runNoShowCheck(db: DB): number {
     for (const u of staff) send.sms({ to: u.phone, toName: u.name, kind: 'no_show', body: `SiteRoll no-show: ${msg} Open SiteRoll to text them or send a replacement.`, link: `${runtime.baseUrl}/live` });
   }
   return due.length;
+}
+
+/** What to do on arrival: scan the board, unless the site has no sign-in. */
+export function arrivalNote(site: { signin_mode: string }): string {
+  return site.signin_mode === 'timesheet' ? 'Report to the site cabin when you get there.' : 'Report to the site cabin and scan the SiteRoll board to sign in.';
 }
 
 /** Workers of the same trade who are free today and allowed on site. */
@@ -200,7 +225,7 @@ export function sendReplacement(
       to: rep.phone,
       toName: fullName(rep),
       kind: 'replacement',
-      body: `Hi ${rep.first_name}, can you get to ${site.name} today (${site.address}, ${site.postcode})? Report to the site cabin and scan the SiteRoll board to sign in. Thanks, ${agencyRow(db).name}`,
+      body: `Hi ${rep.first_name}, can you get to ${site.name} today (${site.address}, ${site.postcode})? ${arrivalNote(site)} Thanks, ${agencyRow(db).name}`,
     });
   }
   const managers = db
@@ -265,6 +290,7 @@ export function createInvoice(db: DB, clientId: number, weekStart: string): { id
       subject: `Invoice ${number} from ${agency.name}`,
       body: `Please find attached invoice ${number} for labour supplied in the week commencing ${fmtDate(weekStart)}.\n\nTotal due: ${fmtMoney(totals.grossPence)} (including VAT of ${fmtMoney(totals.vatPence)})\nDue by: ${fmtDate(addDays(today, agency.payment_terms_days))}\n\nBank: ${agency.bank_name}, sort code ${agency.bank_sort_code}, account ${agency.bank_account}. Please quote ${number}.\n\n${agency.name}`,
       link: `${runtime.baseUrl}/api/invoices/${id}/pdf`,
+      attachInvoiceId: id,
     });
   }
   return { id, number };

@@ -12,7 +12,7 @@ import { notify } from './events';
 import { send } from './messaging';
 import { isWeekLocked } from './timesheets';
 
-export type Flag = 'late' | 'not_booked' | 'card' | 'no_induction' | 'missed_signout' | 'manual' | 'offline' | 'edited' | 'disputed' | 'moved_site' | 'after_approval';
+export type Flag = 'late' | 'not_booked' | 'card' | 'no_induction' | 'missed_signout' | 'manual' | 'offline' | 'edited' | 'disputed' | 'moved_site' | 'after_approval' | 'booked_hours';
 
 export const FLAG_LABELS: Record<string, string> = {
   late: 'Late',
@@ -26,6 +26,7 @@ export const FLAG_LABELS: Record<string, string> = {
   disputed: 'Disputed',
   moved_site: 'Moved site',
   after_approval: 'After sign-off',
+  booked_hours: 'From booking',
 };
 
 export interface SignInput {
@@ -116,6 +117,9 @@ export function openShiftFor(db: DB, workerId: number): AttendanceRow | undefine
 export function signIn(db: DB, input: SignInput): SignResult {
   const { worker, site, client } = load(db, input.workerId, input.siteId);
   if (!worker || !site || !client) return { status: 'error', message: 'Site or worker not found' };
+  if (site.signin_mode === 'timesheet') {
+    return { status: 'error', message: "You don't need to sign in on this site. Your hours come from your booking, and the site checks them each week." };
+  }
   const now = clock.now();
   const { at, offline } = resolveEventTime(input.capturedAt, now);
   const workDate = londonDate(at);

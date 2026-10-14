@@ -50,6 +50,18 @@ Turning on fire alerts stores a push subscription for that phone (a web address 
 
 Name, email, and a scrambled (hashed) password. Login sessions expire after 14 days.
 
+## Who approves the hours
+
+When a client names who approves the hours (from the link in a booking confirmation), SiteRoll stores that person's name, email, role and (if given) mobile, so it can send them the hours each week. The agency is told who was named, and can change or remove them in Clients & sites.
+
+## Email
+
+Emails are sent through Resend, which acts as a processor: name it in your privacy notice. Invoices are attached as PDFs, so they contain the client's billing details and the hours worked.
+
+## Workers' own hours
+
+A worker's phone, once set up with a text code, can see that worker's own sign-ins and hours for this week and last, and whether the client has approved them. Nobody else's.
+
 ## WhatsApp and texts
 
 Texts and WhatsApp messages are sent through Twilio, and WhatsApp messages also pass through WhatsApp (Meta). Both act as processors; name them in your privacy notice. Messages people send to SiteRoll's number (for example "SAFE", "YES", "APPROVE" or a question from the office) are kept with the time and number, so there's a record of what was agreed. Anyone can reply STOP to get ordinary texts instead of WhatsApp messages.

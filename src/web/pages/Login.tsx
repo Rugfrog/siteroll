@@ -14,6 +14,7 @@ export function Login() {
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const expired = new URLSearchParams(window.location.search).has('expired');
+  const inviteExpired = new URLSearchParams(window.location.search).get('invite') === 'expired';
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +82,7 @@ export function Login() {
             </button>
           </div>
           {expired && <div className="note-box">That link has expired. Ask for a new one below.</div>}
+          {inviteExpired && <div className="note-box">That invite link has expired or been cancelled. Ask whoever sent it for a new one.</div>}
           {error && (
             <div className="error-box" role="alert">
               {error}
@@ -100,6 +102,11 @@ export function Login() {
               {me.demoLogin && (
                 <p className="small muted" style={{ margin: 0 }}>
                   Demo login is filled in for you: <code>{me.demoLogin.email}</code> / <code>{me.demoLogin.password}</code>
+                </p>
+              )}
+              {me.inviteOnly && (
+                <p className="small muted" style={{ margin: 0 }}>
+                  This demo is invite-only. If someone sent you an invite link, open that and you'll go straight in.
                 </p>
               )}
             </>

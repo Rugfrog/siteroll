@@ -27,6 +27,20 @@ export const config = {
     // a Twilio phone number for ordinary texts (optional)
     smsFrom: process.env.TWILIO_SMS_FROM || '',
   },
+  /** Resend sends real emails. Without it, emails are simulated in the Outbox. */
+  email: {
+    resendKey: process.env.RESEND_API_KEY || '',
+    // e.g. "timesheets@your-agency.co.uk" on a domain you've verified with Resend
+    from: process.env.EMAIL_FROM || '',
+  },
+  /**
+   * A private password for the demo login. When it's set, the login page stops showing the demo
+   * login and people get in with an invite link instead (invite-only).
+   */
+  agencyPassword: process.env.AGENCY_PASSWORD || '',
+  get inviteOnly() {
+    return this.agencyPassword.length > 0;
+  },
   dataDir: resolve(process.env.DATA_DIR || 'data'),
   get uploadDir() {
     return resolve(this.dataDir, isTest ? 'test-uploads' : 'uploads');

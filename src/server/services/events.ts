@@ -2,7 +2,7 @@
 import { EventEmitter } from 'node:events';
 
 export interface LiveEvent {
-  type: 'attendance' | 'alert' | 'rollcall' | 'timesheet' | 'reset';
+  type: 'attendance' | 'alert' | 'rollcall' | 'timesheet' | 'bookings' | 'clients' | 'reset';
   siteId?: number | null;
 }
 

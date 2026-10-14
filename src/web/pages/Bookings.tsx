@@ -1,8 +1,9 @@
 // Bookings planner: drag workers onto a site and day (desktop), or tap a day to book (mobile).
+// "Confirm with client" emails the week's bookings and asks who approves the hours.
 import { useMemo, useState } from 'react';
 import { api, useApi } from '../api';
 import { Icon } from '../icons';
-import { Async, Avatar, CardBadge, Empty, ErrorBox, Modal, PageHead, useQueryState, useToast, WeekPicker } from '../ui';
+import { Async, Avatar, CardBadge, Empty, ErrorBox, Field, Modal, PageHead, useQueryState, useToast, WeekPicker } from '../ui';
 import { fmtDay, fmtDayLong } from '../../shared/format';
 import { londonDate, mondayOf } from '../../shared/time';
 
@@ -16,6 +17,7 @@ export default function Bookings() {
   const [week, setWeek] = useQueryState('week', mondayOf(londonDate()));
   const state = useApi<any>(`/api/bookings?week=${week}`);
   const [target, setTarget] = useState<Target | null>(null);
+  const [confirming, setConfirming] = useState<any | null>(null);
   const [over, setOver] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [trade, setTrade] = useState('');
@@ -131,6 +133,7 @@ export default function Bookings() {
                           <div className="tiny muted" style={{ fontWeight: 400 }}>
                             {s.clientName}
                           </div>
+                          <SiteApproval site={s} onConfirm={() => setConfirming(s)} />
                           <div className="tiny muted" style={{ fontWeight: 400, marginTop: 6 }}>
                             Drop here for the whole week
                           </div>
@@ -201,6 +204,9 @@ export default function Bookings() {
                           <Icon name="plus" /> Book
                         </button>
                       </div>
+                      <div style={{ padding: '0 20px 10px' }}>
+                        <SiteApproval site={s} onConfirm={() => setConfirming(s)} />
+                      </div>
                       {list.length === 0 ? (
                         <p className="small muted" style={{ padding: '10px 20px', margin: 0 }}>
                           Nobody booked.
@@ -231,6 +237,20 @@ export default function Bookings() {
                 })}
               </div>
 
+              {confirming && (
+                <ConfirmModal
+                  site={confirming}
+                  week={d.week}
+                  bookings={d.bookings}
+                  onClose={() => setConfirming(null)}
+                  onSent={(email) => {
+                    toast(`Booking confirmation sent to ${email} (see the Outbox)`);
+                    setConfirming(null);
+                    state.reload();
+                  }}
+                />
+              )}
+
               {target && (
                 <BookModal
                   target={target}
@@ -251,6 +271,106 @@ export default function Bookings() {
         }}
       </Async>
     </>
+  );
+}
+
+/** Who approves this site's hours, and whether this week's bookings have gone to the client. */
+function SiteApproval({ site, onConfirm }: { site: any; onConfirm: () => void }) {
+  const c = site.confirmation;
+  return (
+    <div className="site-approval">
+      {site.mode === 'timesheet' && <span className="badge badge-blue">Timesheet only</span>}
+      <div className="tiny" style={{ fontWeight: 400 }}>
+        {site.approvers.length ? (
+          <span className="muted">Hours go to {site.approvers.map((a: any) => a.name).join(', ')}</span>
+        ) : (
+          <span style={{ color: 'var(--amber-ink)', fontWeight: 600 }}>Nobody approves the hours yet</span>
+        )}
+      </div>
+      <button className="btn btn-sm" onClick={onConfirm} title="Email the client who's booked, and ask who approves the hours">
+        <Icon name="mail" /> {c ? 'Confirmed' : 'Confirm with client'}
+      </button>
+      {c && (
+        <div className="tiny muted" style={{ fontWeight: 400 }}>
+          Sent to {c.sentTo}
+          {c.answeredAt && c.approverName ? ` · they named ${c.approverName}` : ''}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConfirmModal({ site, week, bookings, onClose, onSent }: { site: any; week: string; bookings: any[]; onClose: () => void; onSent: (email: string) => void }) {
+  const [email, setEmail] = useState<string>(site.confirmation?.sentTo || site.bookingsEmail || '');
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const booked = bookings.filter((b) => b.siteId === site.id && b.status === 'booked');
+  const days = [...new Set<string>(booked.map((b) => b.date))].sort();
+  const send = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.post('/api/bookings/confirm', { siteId: site.id, week, email, name });
+      onSent(email);
+    } catch (err) {
+      setError((err as Error).message);
+      setBusy(false);
+    }
+  };
+  return (
+    <Modal
+      title={`Confirm with ${site.clientName}`}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" form="confirm-form" disabled={busy || !booked.length}>
+            <Icon name="mail" /> {busy ? 'Sending…' : 'Send confirmation'}
+          </button>
+        </>
+      }
+    >
+      <form id="confirm-form" className="stack" onSubmit={send}>
+        <p className="muted" style={{ margin: 0 }}>
+          {site.name} · week commencing {fmtDayLong(week)}
+        </p>
+        {error && <ErrorBox error={error} />}
+        {booked.length === 0 ? (
+          <Empty icon="users" title="Nobody booked this week">
+            Book people first, then confirm.
+          </Empty>
+        ) : (
+          <ul className="small" style={{ margin: 0, paddingLeft: 18 }}>
+            {days.map((day) => (
+              <li key={day}>
+                <strong>{fmtDay(day)}:</strong>{' '}
+                {booked
+                  .filter((b) => b.date === day)
+                  .map((b) => b.name)
+                  .join(', ')}
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="small" style={{ margin: 0 }}>
+          {site.approvers.length
+            ? `The email also says the hours go to ${site.approvers.map((a: any) => a.name).join(', ')} each week, with a link to change it.`
+            : 'The email also asks who approves the hours. They tap a link and type in a name and email (it can be them, the site manager, the project manager or a director). That person then gets the hours each week by email, with no password to set up.'}
+        </p>
+        <div className="form-grid">
+          <Field label="Send to (email)">
+            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="bookings@client.co.uk" />
+          </Field>
+          <Field label="Their name" hint="optional">
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

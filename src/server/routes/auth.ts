@@ -19,7 +19,9 @@ authRouter.get('/me', (req, res) => {
     user: req.user ?? null,
     agency: a ? { name: a.name, colour: a.brand_colour, hasLogo: !!a.logo_path, phone: a.phone } : null,
     demoMode: config.demoMode,
-    demoLogin: config.demoMode ? DEMO_LOGIN : null,
+    // Invite-only: the demo login has a private password, so don't show it.
+    demoLogin: config.demoMode && !config.inviteOnly ? DEMO_LOGIN : null,
+    inviteOnly: config.inviteOnly,
   });
 });
 

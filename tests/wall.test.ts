@@ -25,7 +25,7 @@ describe('Office TV wall', () => {
     const a = request.agent(app);
     await a.post('/api/auth/login').send({ email: 'office@pennine.example', password: 'demo1234' }).expect(200);
     const d = (await a.get('/api/wall').expect(200)).body;
-    expect(d.sites).toHaveLength(3);
+    expect(d.sites).toHaveLength(4); // including the timesheet-only site
     for (const s of d.sites) {
       expect(typeof s.lat).toBe('number');
       expect(typeof s.lng).toBe('number');

@@ -21,7 +21,7 @@ export default function SiteEdit() {
 
   useEffect(() => {
     if (isNew && clients.data && !f)
-      setF({ client_id: clients.data[0]?.id ?? '', name: '', address: '', postcode: '', lat: DEFAULT.lat, lng: DEFAULT.lng, radius_m: 200, start_time: '07:30', finish_time: '16:30', active: true });
+      setF({ client_id: clients.data[0]?.id ?? '', name: '', address: '', postcode: '', lat: DEFAULT.lat, lng: DEFAULT.lng, radius_m: 200, start_time: '07:30', finish_time: '16:30', signin_mode: 'signin', active: true });
     if (!isNew && site.data) setF({ ...site.data, active: !!site.data.active });
   }, [isNew, clients.data, site.data]);
 
@@ -148,7 +148,29 @@ export default function SiteEdit() {
               )}
             </div>
           </Card>
-          {!isNew && (
+          <Card title="How are hours recorded?" pad>
+            <div className="stack" style={{ gap: 10 }}>
+              <label className="check" style={{ alignItems: 'flex-start' }}>
+                <input type="radio" name="signin_mode" checked={f.signin_mode !== 'timesheet'} onChange={() => setF({ ...f, signin_mode: 'signin' })} />
+                <span>
+                  <strong>Workers sign in on site</strong>
+                  <span className="small muted" style={{ display: 'block' }}>
+                    They scan the QR poster (or tap an NFC tag) when they arrive and leave. Their location is checked once, and the site gets a live board and the fire roll call.
+                  </span>
+                </span>
+              </label>
+              <label className="check" style={{ alignItems: 'flex-start' }}>
+                <input type="radio" name="signin_mode" checked={f.signin_mode === 'timesheet'} onChange={() => setF({ ...f, signin_mode: 'timesheet' })} />
+                <span>
+                  <strong>Timesheet only, no sign-in</strong>
+                  <span className="small muted" style={{ display: 'block' }}>
+                    For clients who don't want sign-in on site. Each booked day counts from the start time to the usual finish, less the normal break. Whoever approves the hours checks them each week and queries any day that was different.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </Card>
+          {!isNew && f.signin_mode !== 'timesheet' && (
             <Card title="QR code" pad>
               <p className="small muted" style={{ marginTop: 0 }}>
                 If a photo of the poster gets passed round, make a new code. The old posters will stop working.

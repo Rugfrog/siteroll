@@ -1,12 +1,13 @@
-// Demo data: Pennine Site Staffing Ltd, two main contractors, three sites, 25 workers and six weeks
-// of sign-ins. Everything is generated relative to "today", so the demo always looks current.
+// Demo data: Pennine Site Staffing Ltd, three clients, four sites (one of them timesheet-only),
+// 27 workers and six weeks of sign-ins. Everything is generated relative to "today", so the demo
+// always looks current.
 // Deterministic (seeded random numbers), so every reset looks the same for a given day.
 import type { DB } from './db';
 import { clearAll, nowIso } from './db';
-import { clock } from './config';
+import { clock, config } from './config';
 import { addDays, londonDate, londonTime, londonToUtc, mondayOf, weekdayIndex } from '../shared/time';
 import { hashPassword, randomToken } from './lib/security';
-import { approveTimesheet, ensureTimesheet } from './services/timesheets';
+import { approveTimesheet, ensureTimesheet, syncBookedHours } from './services/timesheets';
 import { closeMissedSignOuts } from './services/attendance';
 import { createInvoice, runNoShowCheck, sendSignoffRequest } from './services/workflows';
 import { OutboxMessenger, setMessenger } from './services/messaging';
@@ -69,6 +70,12 @@ export const WORKERS: WorkerSeed[] = [
 
 export const phoneFor = (i: number) => `07700900${String(101 + i).padStart(3, '0')}`;
 
+/** The crew on the timesheet-only site (their phones follow on from WORKERS). */
+export const SHEPLEY_CREW = [
+  { first: 'Stuart', last: 'Beever', trade: 'Joiner', pay: 2200, charge: 2900, cardType: 'Skilled Worker (blue)', expiryDays: 640 },
+  { first: 'Ian', last: 'Garside', trade: 'General labourer', pay: 1350, charge: 1750, cardType: 'Labourer (green)', expiryDays: 300 },
+];
+
 /** The made-up numbers the demo starts with for the people a presenter's own phone can stand in for. */
 const DEMO_STAND_INS = { worker: phoneFor(1), manager: '07700900501', staff: '07700900999' };
 
@@ -109,22 +116,24 @@ export function seed(db: DB, opts: { today?: string } = {}) {
      VALUES (1, 'Pennine Site Staffing Ltd', 'Unit 7, Lowfields Business Park, Leeds Road, Huddersfield HD2 1UH', '01632 960123', 'office@pennine.example', '#0e6655',
      'GB 123 4567 89', '09876543', 'Example Bank plc', '12-34-56', '12345678', 30, 90, 1, 53.6532, -1.7676)`,
   ).run();
-  db.prepare('INSERT INTO users (name, email, phone, password_hash, created_at) VALUES (?,?,?,?,?)').run('Michelle Lockwood', DEMO_LOGIN.email, '07700900999', hashPassword(DEMO_LOGIN.password), created);
+  // Invite-only demo: the login has a private password instead of the public demo one.
+  const password = config.agencyPassword || DEMO_LOGIN.password;
+  db.prepare('INSERT INTO users (name, email, phone, password_hash, created_at) VALUES (?,?,?,?,?)').run('Michelle Lockwood', DEMO_LOGIN.email, '07700900999', hashPassword(password), created);
 
   /* ---------- Clients ---------- */
   const calder = Number(
     db
       .prepare(
-        `INSERT INTO clients (name, address, billing_email, break_default_mins, break_after_mins, ot_daily_mins, ot_weekly_mins, ot_saturday, ot_sunday, ot_multiplier, round_mins, selfie_required, compliance_mode, signoff_day, signoff_time)
-         VALUES ('Calder Construction Ltd', 'Calder House, Wakefield Road, Brighouse HD6 1QL', 'accounts@calder.example', 30, 360, NULL, 2400, 1, 1, 1.5, 15, 0, 'warn', 4, '14:00')`,
+        `INSERT INTO clients (name, address, billing_email, bookings_email, break_default_mins, break_after_mins, ot_daily_mins, ot_weekly_mins, ot_saturday, ot_sunday, ot_multiplier, round_mins, selfie_required, compliance_mode, signoff_day, signoff_time)
+         VALUES ('Calder Construction Ltd', 'Calder House, Wakefield Road, Brighouse HD6 1QL', 'accounts@calder.example', 'bookings@calder.example', 30, 360, NULL, 2400, 1, 1, 1.5, 15, 0, 'warn', 4, '14:00')`,
       )
       .run().lastInsertRowid,
   );
   const colne = Number(
     db
       .prepare(
-        `INSERT INTO clients (name, address, billing_email, break_default_mins, break_after_mins, ot_daily_mins, ot_weekly_mins, ot_saturday, ot_sunday, ot_multiplier, round_mins, selfie_required, compliance_mode, signoff_day, signoff_time)
-         VALUES ('Colne Valley Developments', 'Brook Mill, Manchester Road, Slaithwaite HD7 5HN', 'invoices@colnevalley.example', 30, 360, 540, NULL, 1, 1, 1.5, 15, 1, 'block', 4, '14:00')`,
+        `INSERT INTO clients (name, address, billing_email, bookings_email, break_default_mins, break_after_mins, ot_daily_mins, ot_weekly_mins, ot_saturday, ot_sunday, ot_multiplier, round_mins, selfie_required, compliance_mode, signoff_day, signoff_time)
+         VALUES ('Colne Valley Developments', 'Brook Mill, Manchester Road, Slaithwaite HD7 5HN', 'invoices@colnevalley.example', 'bookings@colnevalley.example', 30, 360, 540, NULL, 1, 1, 1.5, 15, 1, 'block', 4, '14:00')`,
       )
       .run().lastInsertRowid,
   );
@@ -146,14 +155,14 @@ export function seed(db: DB, opts: { today?: string } = {}) {
   };
 
   /* ---------- Managers ---------- */
-  const addManager = (clientId: number, name: string, email: string, phone: string, siteIds: number[]) => {
-    const id = Number(db.prepare('INSERT INTO managers (client_id, name, email, phone) VALUES (?,?,?,?)').run(clientId, name, email, phone).lastInsertRowid);
+  const addManager = (clientId: number, name: string, email: string, phone: string, siteIds: number[], role = 'Site manager') => {
+    const id = Number(db.prepare('INSERT INTO managers (client_id, name, email, phone, role) VALUES (?,?,?,?,?)').run(clientId, name, email, phone, role).lastInsertRowid);
     for (const s of siteIds) db.prepare('INSERT INTO manager_sites (manager_id, site_id) VALUES (?,?)').run(id, s);
     return id;
   };
   const mgrB = addManager(calder, 'Gareth Holroyd', 'gareth.holroyd@calder.example', '07700900501', [siteB]);
   const mgrH = addManager(calder, 'Priya Mistry', 'priya.mistry@calder.example', '07700900502', [siteH]);
-  const mgrM = addManager(colne, 'Sean Brierley', 'sean.brierley@colnevalley.example', '07700900503', [siteM]);
+  const mgrM = addManager(colne, 'Sean Brierley', 'sean.brierley@colnevalley.example', '07700900503', [siteM], 'Project manager');
   const managerFor: Record<number, { id: number; name: string }> = {
     [siteB]: { id: mgrB, name: 'Gareth Holroyd' },
     [siteH]: { id: mgrH, name: 'Priya Mistry' },
@@ -502,9 +511,43 @@ export function seed(db: DB, opts: { today?: string } = {}) {
     londonToUtc(today, '07:49').toISOString(),
   );
 
+  /* ---------- A timesheet-only site ----------
+     Shepley Homes don't want sign-in on their barn conversions: each booked day counts from start to
+     finish, and their approver checks the hours each week. Nobody has been named to approve yet, so
+     the demo can show the booking confirmation asking the client who it should be. */
+  const shepley = Number(
+    db
+      .prepare(
+        `INSERT INTO clients (name, address, billing_email, bookings_email, break_default_mins, break_after_mins, ot_daily_mins, ot_weekly_mins, ot_saturday, ot_sunday, ot_multiplier, round_mins, selfie_required, compliance_mode, signoff_day, signoff_time)
+         VALUES ('Shepley Homes Ltd', 'Marsh Lane Yard, Shepley HD8 8AE', 'accounts@shepley.example', 'jo.ramsden@shepley.example', 30, 360, NULL, NULL, 1, 1, 1.5, 0, 0, 'warn', 4, '14:00')`,
+      )
+      .run().lastInsertRowid,
+  );
+  const siteT = addSite(shepley, 'Penistone Road Barns, Shepley', 'Barn conversions off Penistone Road, Shepley', 'HD8 8BX', 53.5869, -1.7123, 150, '08:00', '16:30');
+  db.prepare("UPDATE sites SET signin_mode = 'timesheet' WHERE id = ?").run(siteT);
+  const lastWeek = addDays(thisWeek, -7);
+  for (const [k, w] of SHEPLEY_CREW.entries()) {
+    const i = WORKERS.length + k;
+    const id = Number(
+      db
+        .prepare(
+          `INSERT INTO workers (first_name, last_name, phone, trade, pay_rate, charge_rate, card_scheme, card_type, card_number, card_expiry, rtw_checked_on, rtw_checked_by, emergency_name, emergency_phone, created_at)
+           VALUES (?,?,?,?,?,?,'CSCS',?,?,?,?,'Michelle Lockwood',?,?,?)`,
+        )
+        .run(w.first, w.last, phoneFor(i), w.trade, w.pay, w.charge, w.cardType, String(between(10000000, 99999999)), addDays(today, w.expiryDays), addDays(firstWeek, -30), `${emergencyNames[i % emergencyNames.length]} ${w.last}`, `07700900${String(601 + i).padStart(3, '0')}`, created)
+        .lastInsertRowid,
+    );
+    db.prepare('INSERT INTO inductions (worker_id, site_id, inducted_on, inducted_by) VALUES (?,?,?,?)').run(id, siteT, addDays(lastWeek, 0), 'Shepley Homes site induction');
+    // Booked Monday to Friday, last week and this week.
+    for (const week of [lastWeek, thisWeek]) {
+      for (let d = 0; d < 5; d++) insBooking.run(id, siteT, addDays(week, d), 'booked', nowIso(londonToUtc(addDays(week, -3), '10:00')));
+    }
+  }
+  for (const week of [lastWeek, thisWeek]) syncBookedHours(db, siteT, week);
+
   // No-show alerts for anyone booked who hasn't arrived 15 minutes after the start.
   runNoShowCheck(db);
   applyDemoPhone(db);
 
-  return { today, thisWeek, sites: { siteB, siteH, siteM }, managers: { mgrB, mgrH, mgrM }, clients: { calder, colne } };
+  return { today, thisWeek, sites: { siteB, siteH, siteM, siteT }, managers: { mgrB, mgrH, mgrM }, clients: { calder, colne, shepley } };
 }

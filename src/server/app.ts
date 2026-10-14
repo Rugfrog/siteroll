@@ -16,9 +16,12 @@ import { filesRouter } from './routes/files';
 import { askRouter } from './routes/ask';
 import { wallRouter } from './routes/wall';
 import { whatsappRouter } from './routes/whatsapp';
+import { publicRouter } from './routes/public';
 import { TimesheetError } from './services/timesheets';
 import { ImageError } from './services/files';
 import { agencyRow } from './services/workflows';
+import { readInvite } from './services/invites';
+import { DEMO_LOGIN } from './seed';
 
 export interface AppOptions {
   vite?: ViteDevServer;
@@ -57,6 +60,7 @@ export function createApp(opts: AppOptions = {}) {
   app.use('/api/auth', authRouter);
   app.use('/api/w', workerRouter);
   app.use('/api/whatsapp', whatsappRouter);
+  app.use('/api/public', publicRouter);
   app.use('/files', filesRouter);
   app.use('/api', askRouter);
   app.use('/api', wallRouter);
@@ -64,6 +68,16 @@ export function createApp(opts: AppOptions = {}) {
   app.use('/api', moneyRouter);
   app.use('/api', adminRouter);
   app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
+
+  // Invite links for an invite-only demo: logs the person in as the demo office login.
+  app.get('/invite/:token', (req, res) => {
+    const invite = readInvite(String(req.params.token));
+    const u = invite ? (getDb().prepare('SELECT id FROM users WHERE email = ?').get(DEMO_LOGIN.email) as { id: number } | undefined) : undefined;
+    if (!invite || !u || !config.demoMode) return res.redirect('/login?invite=expired');
+    console.log(`Invite link used by ${invite.name}`);
+    startSession(req, res, 'agency', u.id);
+    res.redirect('/');
+  });
 
   // Magic links for client site managers
   app.get('/m/:token', (req, res) => {
