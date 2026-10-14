@@ -42,6 +42,11 @@ export function LiveBoard({ client = false }: { client?: boolean }) {
         title="On site now"
         sub={state.data ? `Updated ${fmtTime(state.data.now)} · refreshes by itself` : undefined}
       >
+        {!client && (
+          <a className="btn" href="/wall">
+            <Icon name="tv" /> Office TV view
+          </a>
+        )}
         {state.data && state.data.sites.length > 1 && (
           <select className="select" style={{ width: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))} aria-label="Show site">
             <option value="all">All sites</option>

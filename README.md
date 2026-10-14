@@ -8,7 +8,16 @@ Workers sign in and out by scanning a QR code (or tapping an NFC tag) on the sit
 
 **Share a public demo:** click the button above, sign in to Render with GitHub (free plan), and click **Deploy Blueprint**. After a few minutes you get a link like `https://siteroll-demo.onrender.com` that anyone can open, with nothing to install. It runs in demo mode with the demo login shown on the login page. On the free plan it goes to sleep after 15 minutes without visitors; the first visit after that takes about a minute to wake it, and the demo data reloads fresh.
 
-- **DEMO.md** has a 5-minute walkthrough for a sales meeting.
+**Headline features**
+
+- **Sign in by QR code or NFC tag**, with no app to install. The location check means it only counts if they're really on site.
+- **Live board and fire roll call.** When a roll call starts, **every worker on site gets a fire alarm on their phone**: a text with their own "I'm safe" link, a notification that buzzes even when the phone is locked, and a full-screen alarm on the sign-in page. Most people mark themselves safe; anyone who taps "I need help" goes to the top in red.
+- **Friday sign-off in one tap** for the client, turning straight into invoices, payroll and margins.
+- **Ask SiteRoll:** questions in plain English ("What was our margin last week?", "Whose cards run out this month?"), answered by Claude from the agency's own figures.
+- **Office TV:** a full-screen live view for the office telly, with a map of sites, a live feed, and today's billed £ ticking up by the second.
+- Bookings and no-show alerts with replacements, compliance at the gate (CSCS/CPCS, inductions, right to work), timesheets with an edit history, and invoices, payroll and margins.
+
+- **DEMO.md** has a 6-minute walkthrough for a sales meeting.
 - **PRIVACY.md** explains what's stored and why, for the agency's privacy notice.
 
 ---
@@ -69,6 +78,10 @@ Copy `.env.example` to `.env`. Everything is optional.
 | `DEMO_MODE` | `true` in dev, `false` in production | Shows "Pretend I'm at…", Reset demo, and codes on screen. **Never on for a real agency.** |
 | `HTTPS` | off | `1` = serve over HTTPS with a self-signed certificate (for testing on phones) |
 | `DB_PATH` | `data/siteroll.db` | Database file |
+| `ANTHROPIC_API_KEY` | none | Switches on Ask SiteRoll (get a key at console.anthropic.com) |
+| `ASK_DAILY_LIMIT` | `300` | Most questions Ask SiteRoll answers per day, so a shared link can't run up a bill |
+| `ASK_EFFORT` | `low` | How hard Claude thinks before answering: `low` (fastest), `medium` or `high` |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | made automatically | Keys for fire alert notifications. Set them to keep phones subscribed if the database is ever replaced. |
 
 ---
 
@@ -136,11 +149,41 @@ The CSV columns are a simple list in `src/server/lib/payroll.ts` (`PAYROLL_COLUM
 
 ---
 
+## Ask SiteRoll (AI assistant)
+
+Agency staff can ask questions in plain English on the **Ask SiteRoll** page, or in the box at the top of Home. It uses Claude (`claude-opus-5-5`) with twelve read-only lookups: today's live board, workers, one worker in detail, timesheets, compliance, invoices, margins, bookings, clients and sites, payroll, fire roll calls, and messages sent. The lookups use the same calculations as the rest of SiteRoll, so its figures match the screens, PDFs and CSVs. It **can't change anything**: if you ask it to book someone or send a text, it tells you where to click and offers to draft the message.
+
+- **Switch it on:** add `ANTHROPIC_API_KEY` to `.env` (or in Render: the service's **Environment** page) and restart. Without a key, the page explains how to set one up.
+- **Cost:** a few pence per question. There's a limit per person (20 questions per 10 minutes) and a daily cap (`ASK_DAILY_LIMIT`). On a public demo link, anyone with the demo login can ask questions, which spends your API credit.
+- **Privacy:** answering a question sends the relevant SiteRoll data (names, hours, rates and so on) to Anthropic's API. List Anthropic as a supplier in your privacy notice (see PRIVACY.md), and check their current commercial terms and data processing addendum.
+- **Refusals:** if Claude's safety checks decline a question, the API retries on Anthropic's recommended fallback model (`fallbacks: "default"`); if that also declines, the user sees a polite "can't help with that".
+- The code is in `src/server/services/ask.ts` (Claude) and `src/server/services/askTools.ts` (the lookups).
+
+## Fire alarm to every phone
+
+When anyone starts a fire roll call (the red button on the live board, or the big button on a site manager's phone):
+
+1. Everyone signed in on that site gets a **text** with their own "I'm safe" link. Texts are simulated in the Outbox until a texting service such as Twilio is connected.
+2. Phones that have turned on **fire alerts** get a **push notification** that buzzes even when the phone is locked. Workers turn alerts on with one tap on the sign-in page. Push is free (web push, no account needed), but needs the https address: Android works in Chrome, and an iPhone only once SiteRoll has been added to the home screen.
+3. Any **sign-in page that's open** turns into a full-screen red alarm within a few seconds, with an alarm tone and vibration.
+
+Workers tap **I'M SAFE** or **I NEED HELP**. "I need help" puts them at the top of the marshal's list in red, and texts the site's managers and agency staff at once. The marshal's screen updates live and shows who answered on their own phone; the PDF record includes it. It doesn't replace the site's fire alarm system or marshals. It replaces the paper register.
+
+## Office TV
+
+**Office TV** in the menu (or `/wall`) is a full-screen live view for the office telly. It shows:
+- a dark map with each site's headcount, which pings when someone signs in;
+- today's billed £, margin and hours ticking up by the second. This is a live estimate before overtime and rounding; the timesheets have the exact figures.
+- a live feed of sign-ins, blocked attempts, no-shows and roll calls;
+- every site and the key numbers along the bottom.
+
+Press **Full screen** on a TV or a spare monitor in the office.
+
 ## How it works
 
 - **One process.** Express serves the JSON API. In development it runs Vite as middleware, so the dashboard reloads as you edit. In production it serves the built files from `dist/`.
 - **Database.** SQLite (`better-sqlite3`). Money is stored in **pence** (integers). Times are stored in **UTC** and shown in **Europe/London**, so the clocks changing is handled (see `src/shared/time.ts` and its tests). Every total on screen, in PDFs and in the CSV comes from the same functions (`src/server/lib/money.ts`), so they always agree.
-- **Worker page** (`src/worker/`). Plain TypeScript with no framework, about 9 KB gzipped, so it's quick on a cheap phone with poor signal. It's a PWA, so workers can "Add to home screen". It saves a sign-in on the phone if there's no signal and sends it, with the original time, when signal returns.
+- **Worker page** (`src/worker/`). Plain TypeScript with no framework, about 10 KB gzipped, so it's quick on a cheap phone with poor signal. It's a PWA, so workers can "Add to home screen". It saves a sign-in on the phone if there's no signal and sends it, with the original time, when signal returns.
 - **Dashboard** (`src/web/`). React and React Router, with hand-written CSS. Mobile-first: tables turn into cards on a phone, with a bottom tab bar.
 - **Live updates.** Server-sent events, with 20–30 second polling as a fallback.
 - **Background checks,** once a minute (`src/server/services/jobs.ts`):

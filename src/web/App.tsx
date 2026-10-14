@@ -26,6 +26,7 @@ const ClientTimesheets = lazy(() => import('./pages/ClientTimesheets'));
 const ClientApproval = lazy(() => import('./pages/ClientApproval'));
 const RollCallHistory = lazy(() => import('./pages/RollCallHistory'));
 const Ask = lazy(() => import('./pages/Ask'));
+const Wall = lazy(() => import('./pages/Wall'));
 
 export interface Me {
   user: { type: 'agency' | 'manager'; id: number; name: string; clientId: number | null; siteIds: number[] | null } | null;
@@ -77,6 +78,7 @@ export function App() {
               <Route path="/login" element={me.user ? <Navigate to={me.user.type === 'agency' ? '/' : '/client'} replace /> : <Login />} />
               <Route path="/sites/:id/poster" element={<Guard type="agency"><Poster /></Guard>} />
               <Route path="/rollcall/:id" element={<Guard><RollCall /></Guard>} />
+              <Route path="/wall" element={<Guard type="agency"><Wall /></Guard>} />
               <Route path="/client/*" element={<Guard type="manager"><ClientShell /></Guard>} />
               <Route path="/*" element={<Guard type="agency"><AgencyShell /></Guard>} />
             </Routes>
@@ -242,6 +244,7 @@ function AgencyShell() {
     { to: '/', label: 'Home', icon: 'home', end: true, mobile: true },
     { to: '/ask', label: 'Ask SiteRoll', icon: 'sparkle', mobile: true },
     { to: '/live', label: 'On site now', icon: 'live', mobile: true, count: counts.data?.alerts.length },
+    { to: '/wall', label: 'Office TV', icon: 'tv' },
     { to: '/bookings', label: 'Bookings', icon: 'calendar', mobile: true },
     { to: '/timesheets', label: 'Timesheets', icon: 'clipboard', mobile: true },
     { to: '/invoices', label: 'Invoices', icon: 'receipt' },
@@ -260,9 +263,9 @@ function AgencyShell() {
       sub={me.agency?.name ?? ''}
       groups={[
         { label: 'Today', from: 0 },
-        { label: 'Money', from: 4 },
-        { label: 'People and places', from: 7 },
-        { label: 'Admin', from: 11 },
+        { label: 'Money', from: 5 },
+        { label: 'People and places', from: 8 },
+        { label: 'Admin', from: 12 },
       ]}
     >
       <Routes>

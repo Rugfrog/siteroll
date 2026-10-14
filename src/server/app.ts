@@ -14,6 +14,7 @@ import { moneyRouter } from './routes/money';
 import { adminRouter } from './routes/admin';
 import { filesRouter } from './routes/files';
 import { askRouter } from './routes/ask';
+import { wallRouter } from './routes/wall';
 import { TimesheetError } from './services/timesheets';
 import { ImageError } from './services/files';
 import { agencyRow } from './services/workflows';
@@ -56,6 +57,7 @@ export function createApp(opts: AppOptions = {}) {
   app.use('/api/w', workerRouter);
   app.use('/files', filesRouter);
   app.use('/api', askRouter);
+  app.use('/api', wallRouter);
   app.use('/api', liveRouter);
   app.use('/api', moneyRouter);
   app.use('/api', adminRouter);

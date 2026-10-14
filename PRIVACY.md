@@ -32,6 +32,12 @@ The agency is the **data controller**. Whoever hosts and supports SiteRoll for y
 
 The photo is stored as an ordinary picture so a person can glance at it. SiteRoll does **no face recognition or other biometric processing** on it. It is not used for anything else, and it is deleted automatically.
 
+### Fire alarm and fire alerts
+
+When a fire roll call starts, everyone signed in on that site gets a text with a personal link to say they're safe (or need help), and a notification if they've turned on fire alerts. SiteRoll records when each person said they were safe or asked for help, and whether they did it on their own phone or a marshal ticked them. This is kept with the roll call record, for health and safety.
+
+Turning on fire alerts stores a push subscription for that phone (a web address issued by the phone's browser, plus encryption keys). It contains no location or personal details, and is deleted if the phone unsubscribes or the browser data is cleared.
+
 ## Client site managers
 
 | What | Why | Who can see it | How long |
@@ -43,6 +49,10 @@ The photo is stored as an ordinary picture so a person can glance at it. SiteRol
 ## Agency staff
 
 Name, email, and a scrambled (hashed) password. Login sessions expire after 14 days.
+
+## Ask SiteRoll (AI assistant)
+
+If you switch on Ask SiteRoll, a question from agency staff, plus the SiteRoll data needed to answer it (for example names, trades, hours, rates, card expiry dates, invoice totals), is sent to Anthropic's Claude API to produce the answer. Anthropic acts as a processor. Name them as a supplier in your privacy notice, and check their current commercial terms and data processing addendum (including where data is processed and how long it is kept). Ask SiteRoll can only read data; it cannot change anything. Only agency staff can use it, not site managers or workers. Leave `ANTHROPIC_API_KEY` unset to keep it switched off.
 
 ## Lawful bases you're likely to rely on
 
