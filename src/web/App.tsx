@@ -25,6 +25,7 @@ const ClientHome = lazy(() => import('./pages/ClientHome'));
 const ClientTimesheets = lazy(() => import('./pages/ClientTimesheets'));
 const ClientApproval = lazy(() => import('./pages/ClientApproval'));
 const RollCallHistory = lazy(() => import('./pages/RollCallHistory'));
+const Ask = lazy(() => import('./pages/Ask'));
 
 export interface Me {
   user: { type: 'agency' | 'manager'; id: number; name: string; clientId: number | null; siteIds: number[] | null } | null;
@@ -239,12 +240,13 @@ function AgencyShell() {
   const counts = useApi<{ alerts: unknown[]; awaiting: unknown[] }>('/api/dashboard');
   const items: NavItem[] = [
     { to: '/', label: 'Home', icon: 'home', end: true, mobile: true },
+    { to: '/ask', label: 'Ask SiteRoll', icon: 'sparkle', mobile: true },
     { to: '/live', label: 'On site now', icon: 'live', mobile: true, count: counts.data?.alerts.length },
     { to: '/bookings', label: 'Bookings', icon: 'calendar', mobile: true },
     { to: '/timesheets', label: 'Timesheets', icon: 'clipboard', mobile: true },
     { to: '/invoices', label: 'Invoices', icon: 'receipt' },
     { to: '/payroll', label: 'Payroll & margins', icon: 'pound' },
-    { to: '/workers', label: 'Workers', icon: 'users', mobile: true },
+    { to: '/workers', label: 'Workers', icon: 'users' },
     { to: '/compliance', label: 'Compliance', icon: 'shield' },
     { to: '/clients', label: 'Clients & sites', icon: 'building' },
     { to: '/rollcalls', label: 'Fire roll calls', icon: 'flame' },
@@ -258,13 +260,14 @@ function AgencyShell() {
       sub={me.agency?.name ?? ''}
       groups={[
         { label: 'Today', from: 0 },
-        { label: 'Money', from: 3 },
-        { label: 'People and places', from: 6 },
-        { label: 'Admin', from: 10 },
+        { label: 'Money', from: 4 },
+        { label: 'People and places', from: 7 },
+        { label: 'Admin', from: 11 },
       ]}
     >
       <Routes>
         <Route index element={<Home />} />
+        <Route path="ask" element={<Ask />} />
         <Route path="live" element={<Live />} />
         <Route path="bookings" element={<Bookings />} />
         <Route path="timesheets" element={<Timesheets />} />

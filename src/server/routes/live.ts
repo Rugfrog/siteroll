@@ -1,78 +1,19 @@
 // Shared by agency staff and client site managers. Every handler checks the user can see the site.
 import { Router, type Request, type Response } from 'express';
-import { getDb, nowIso, parseFlags } from '../db';
+import { getDb, nowIso } from '../db';
 import { clock } from '../config';
-import { v } from '../lib/validate';
-import { londonDate } from '../../shared/time';
+import { asyncRoute, v } from '../lib/validate';
 import { actorName, canSeeSite, requireStaff } from '../auth';
 import { decideManual } from '../services/attendance';
 import { live, notify, type LiveEvent } from '../services/events';
-import { cardStatus } from '../services/rules';
+import { liveBoard } from '../services/board';
 import { rollCallPdf } from '../pdf/documents';
 
 export const liveRouter = Router();
 liveRouter.use(requireStaff);
 
-function visibleSites(req: Request) {
-  const db = getDb();
-  const rows = db
-    .prepare('SELECT s.*, c.name AS client_name FROM sites s JOIN clients c ON c.id = s.client_id WHERE s.active = 1 ORDER BY c.name, s.name')
-    .all() as { id: number; name: string; client_name: string; client_id: number; start_time: string; finish_time: string; address: string; postcode: string }[];
-  return rows.filter((s) => canSeeSite(req.user, s.id));
-}
-
 liveRouter.get('/live', (req, res) => {
-  const db = getDb();
-  const today = londonDate(clock.now());
-  const sites = visibleSites(req).map((s) => {
-    const onSite = db
-      .prepare(
-        `SELECT a.id AS attendanceId, a.worker_id AS workerId, a.in_at AS inAt, a.flags, a.method, a.selfie_path, w.first_name, w.last_name, w.trade, w.card_expiry
-         FROM attendance a JOIN workers w ON w.id = a.worker_id
-         WHERE a.site_id = ? AND a.out_at IS NULL ORDER BY a.in_at`,
-      )
-      .all(s.id) as { attendanceId: number; workerId: number; inAt: string; flags: string; method: string; selfie_path: string | null; first_name: string; last_name: string; trade: string; card_expiry: string | null }[];
-    const signedOut = (db.prepare('SELECT COUNT(*) AS n FROM attendance WHERE site_id = ? AND work_date = ? AND out_at IS NOT NULL').get(s.id, today) as { n: number }).n;
-    const expected = db
-      .prepare(
-        `SELECT b.id AS bookingId, b.worker_id AS workerId, w.first_name, w.last_name, w.trade, w.phone,
-           (SELECT 1 FROM alerts al WHERE al.booking_id = b.id AND al.type = 'no_show' AND al.resolved_at IS NULL) AS noShow
-         FROM bookings b JOIN workers w ON w.id = b.worker_id
-         WHERE b.site_id = ? AND b.date = ? AND b.status = 'booked'
-           AND NOT EXISTS (SELECT 1 FROM attendance a WHERE a.worker_id = b.worker_id AND a.work_date = b.date)
-         ORDER BY w.last_name`,
-      )
-      .all(s.id, today) as { bookingId: number; workerId: number; first_name: string; last_name: string; trade: string; phone: string; noShow: number | null }[];
-    const pending = db
-      .prepare(
-        `SELECT t.id, t.action, t.at, t.distance_m AS distanceM, t.accuracy, w.first_name, w.last_name, w.trade
-         FROM sign_in_attempts t JOIN workers w ON w.id = t.worker_id WHERE t.site_id = ? AND t.status = 'requested' ORDER BY t.at`,
-      )
-      .all(s.id);
-    return {
-      id: s.id,
-      name: s.name,
-      clientName: s.client_name,
-      address: `${s.address}, ${s.postcode}`,
-      startTime: s.start_time,
-      finishTime: s.finish_time,
-      onSite: onSite.map((p) => ({
-        attendanceId: p.attendanceId,
-        workerId: p.workerId,
-        name: `${p.first_name} ${p.last_name}`,
-        trade: p.trade,
-        inAt: p.inAt,
-        flags: parseFlags(p.flags),
-        method: p.method,
-        hasSelfie: !!p.selfie_path,
-        card: cardStatus(p.card_expiry, today),
-      })),
-      expected: expected.map((e) => ({ bookingId: e.bookingId, workerId: e.workerId, name: `${e.first_name} ${e.last_name}`, trade: e.trade, noShow: !!e.noShow })),
-      signedOutToday: signedOut,
-      pendingManual: pending,
-    };
-  });
-  res.json({ now: nowIso(clock.now()), today, sites });
+  res.json(liveBoard(getDb(), req.user!.siteIds));
 });
 
 /** Server-sent events: tells the board to refresh when something changes. */
@@ -232,10 +173,10 @@ liveRouter.post('/rollcalls/:id/finish', (req, res) => {
   res.json(rollCallView(getDb().prepare('SELECT * FROM roll_calls WHERE id = ?').get(rc.id) as RollCallRow));
 });
 
-liveRouter.get('/rollcalls/:id/pdf', async (req, res) => {
+liveRouter.get('/rollcalls/:id/pdf', asyncRoute(async (req, res) => {
   const rc = loadRollCall(req, v.id(req.params.id));
   if (!rc) return res.status(404).json({ error: 'Not found' });
   const pdf = await rollCallPdf(getDb(), rc.id);
   res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="roll-call-${rc.id}.pdf"` });
   res.send(pdf);
-});
+}));

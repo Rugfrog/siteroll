@@ -1,6 +1,15 @@
 // Small server-side validators. Every request body goes through these before touching the database.
 import { isValidDate, isValidTime } from '../../shared/time';
 
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
+
+/** Express 4 doesn't catch errors from async handlers (Node would crash); pass them to the error handler. */
+export const asyncRoute =
+  (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>): RequestHandler =>
+  (req, res, next) => {
+    fn(req, res, next).catch(next);
+  };
+
 export class ValidationError extends Error {
   status = 400;
 }

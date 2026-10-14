@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useApi, useLiveRefresh } from '../api';
 import { BarChart } from '../Chart';
 import { Icon } from '../icons';
@@ -27,6 +27,8 @@ export default function Home() {
                 <Icon name="live" /> Live board
               </Link>
             </PageHead>
+
+            <AskBar />
 
             <h2 className="sr-only">Today</h2>
             <div className="grid grid-4">
@@ -245,5 +247,24 @@ function GettingStarted() {
         </li>
       ))}
     </ol>
+  );
+}
+
+/** "Ask anything" box: opens Ask SiteRoll with the question. */
+function AskBar() {
+  const [q, setQ] = useState('');
+  const navigate = useNavigate();
+  return (
+    <form
+      className="ask-bar"
+      onSubmit={(e) => {
+        e.preventDefault();
+        navigate(q.trim() ? `/ask?q=${encodeURIComponent(q.trim())}` : '/ask');
+      }}
+    >
+      <Icon name="sparkle" />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask SiteRoll anything, e.g. What was our margin last week?" aria-label="Ask SiteRoll a question" />
+      <button className="btn btn-primary btn-sm">Ask</button>
+    </form>
   );
 }

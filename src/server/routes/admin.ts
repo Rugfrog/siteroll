@@ -3,12 +3,13 @@ import { Router } from 'express';
 import QRCode from 'qrcode';
 import { getDb, nowIso } from '../db';
 import { clock, config } from '../config';
-import { v, ValidationError } from '../lib/validate';
+import { asyncRoute, v, ValidationError } from '../lib/validate';
 import { randomToken } from '../lib/security';
-import { addDays, londonDate, mondayOf, weekDates } from '../../shared/time';
+import { londonDate, mondayOf, weekDates } from '../../shared/time';
 import { fmtPhone, normaliseMobile } from '../../shared/format';
 import { actorName, requireAgency, startSession } from '../auth';
 import { closeMissedSignOuts } from '../services/attendance';
+import { complianceItems } from '../services/board';
 import { deleteUpload, saveDataUrlImage } from '../services/files';
 import { notify } from '../services/events';
 import { send } from '../services/messaging';
@@ -278,7 +279,7 @@ adminRouter.put('/sites/:id', (req, res) => {
 });
 
 /** Postcode → map position, using the free postcodes.io service (no key needed). */
-adminRouter.get('/geocode', async (req, res) => {
+adminRouter.get('/geocode', asyncRoute(async (req, res) => {
   const pc = String(req.query.postcode ?? '').replace(/\s+/g, '').toUpperCase();
   if (!/^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(pc)) return res.status(400).json({ error: 'That doesn’t look like a UK postcode' });
   try {
@@ -290,7 +291,7 @@ adminRouter.get('/geocode', async (req, res) => {
   } catch {
     res.status(502).json({ error: 'Postcode lookup is unavailable right now. Drag the pin instead.' });
   }
-});
+}));
 
 /** New QR code (e.g. if a poster has been photographed and shared off site). Old posters stop working. */
 adminRouter.post('/sites/:id/new-code', (req, res) => {
@@ -302,7 +303,7 @@ export function signInUrl(token: string) {
   return `${runtime.baseUrl}/s/${token}`;
 }
 
-adminRouter.get('/sites/:id/poster', async (req, res) => {
+adminRouter.get('/sites/:id/poster', asyncRoute(async (req, res) => {
   const db = getDb();
   const s = db.prepare('SELECT s.*, c.name AS client_name FROM sites s JOIN clients c ON c.id = s.client_id WHERE s.id = ?').get(v.id(req.params.id)) as
     | (SiteRow & { client_name: string })
@@ -312,7 +313,7 @@ adminRouter.get('/sites/:id/poster', async (req, res) => {
   const svg = await QRCode.toString(url, { type: 'svg', errorCorrectionLevel: 'M', margin: 1, color: { dark: '#000000', light: '#ffffff' } });
   const a = agencyRow(db);
   res.json({ siteName: s.name, clientName: s.client_name, address: `${s.address}, ${s.postcode}`, url, svg, agency: { name: a.name, phone: a.phone, colour: a.brand_colour, hasLogo: !!a.logo_path } });
-});
+}));
 
 /* ---------------- Bookings ---------------- */
 
@@ -410,29 +411,7 @@ adminRouter.post('/alerts/:id/replace', (req, res) => {
 /* ---------------- Compliance ---------------- */
 
 adminRouter.get('/compliance', (_req, res) => {
-  const db = getDb();
-  const today = londonDate(clock.now());
-  const in30 = addDays(today, 30);
-  const items: { workerId: number; name: string; trade: string; what: string; expiry: string | null; status: 'expired' | 'expiring' | 'missing' }[] = [];
-  const workers = db.prepare('SELECT * FROM workers WHERE active = 1 ORDER BY last_name').all() as WorkerRow[];
-  for (const w of workers) {
-    const cs = cardStatus(w.card_expiry, today);
-    if (cs !== 'ok') items.push({ workerId: w.id, name: fullName(w), trade: w.trade, what: `${w.card_scheme} card`, expiry: w.card_expiry, status: cs });
-    if (!w.rtw_checked_on) items.push({ workerId: w.id, name: fullName(w), trade: w.trade, what: 'Right to work check', expiry: null, status: 'missing' });
-    if (!w.emergency_phone) items.push({ workerId: w.id, name: fullName(w), trade: w.trade, what: 'Emergency contact', expiry: null, status: 'missing' });
-    const tickets = db.prepare('SELECT * FROM worker_tickets WHERE worker_id = ? AND expiry IS NOT NULL AND expiry <= ?').all(w.id, in30) as { name: string; expiry: string }[];
-    for (const t of tickets) items.push({ workerId: w.id, name: fullName(w), trade: w.trade, what: t.name, expiry: t.expiry, status: t.expiry < today ? 'expired' : 'expiring' });
-  }
-  const order = { expired: 0, missing: 1, expiring: 2 };
-  items.sort((a, b) => order[a.status] - order[b.status] || (a.expiry ?? '').localeCompare(b.expiry ?? ''));
-  const blocked = db
-    .prepare(
-      `SELECT t.id, t.at, w.first_name, w.last_name, s.name AS site_name FROM sign_in_attempts t JOIN workers w ON w.id = t.worker_id JOIN sites s ON s.id = t.site_id
-       WHERE t.reason = 'card_expired' ORDER BY t.at DESC LIMIT 20`,
-    )
-    .all();
-  const clients = db.prepare('SELECT id, name, compliance_mode FROM clients ORDER BY name').all();
-  res.json({ today, items, blocked, clients });
+  res.json(complianceItems(getDb()));
 });
 
 /* ---------------- Agency settings ---------------- */

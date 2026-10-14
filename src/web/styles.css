@@ -1793,3 +1793,250 @@ textarea.input {
     display: none;
   }
 }
+
+/* ---------- Ask SiteRoll ---------- */
+
+.ask-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 6px 6px 6px 14px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow);
+}
+.ask-bar:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, white);
+}
+.ask-bar svg {
+  width: 20px;
+  height: 20px;
+  color: var(--brand);
+  flex: none;
+}
+.ask-bar input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: none;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.ask-page {
+  max-width: 880px;
+}
+.ask-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 240px;
+}
+.ask-empty {
+  text-align: center;
+  padding: 28px 8px 12px;
+}
+.ask-empty h2 {
+  font-size: 1.4rem;
+  margin-top: 14px;
+}
+.ask-empty p {
+  margin: 6px 0 0;
+}
+.ask-orb {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--brand) 55%, white), var(--brand) 60%, color-mix(in srgb, var(--brand) 70%, black));
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--brand) 35%, transparent);
+  animation: orb 4s ease-in-out infinite;
+}
+.ask-orb svg {
+  width: 28px;
+  height: 28px;
+}
+@keyframes orb {
+  50% {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 36px color-mix(in srgb, var(--brand) 45%, transparent);
+  }
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 20px;
+}
+.chip-btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 99px;
+  padding: 8px 14px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink-2);
+  transition: border-color 0.12s, color 0.12s;
+}
+.chip-btn:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.ask-q {
+  align-self: flex-end;
+  max-width: 82%;
+}
+.ask-q > div {
+  background: var(--ink);
+  color: #fff;
+  border-radius: 16px 16px 4px 16px;
+  padding: 10px 14px;
+  white-space: pre-wrap;
+}
+.ask-a {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.ask-a-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  background: var(--brand);
+  color: var(--brand-ink);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.ask-a-mark svg {
+  width: 17px;
+  height: 17px;
+}
+.ask-a-body {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px 16px 16px 16px;
+  padding: 12px 16px 8px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+  flex: 1;
+  max-width: 720px;
+}
+.ask-steps {
+  list-style: none;
+  padding: 0 0 8px;
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: grid;
+  gap: 3px;
+  border-bottom: 1px dashed var(--line);
+}
+.ask-steps li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.ask-steps svg {
+  width: 14px;
+  height: 14px;
+  color: var(--green);
+  flex: none;
+}
+.ask-steps li.now {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ask-steps li.now svg {
+  color: var(--brand);
+}
+.ask-thinking {
+  display: flex;
+  gap: 5px;
+  padding: 6px 0 10px;
+}
+.ask-thinking span:not(.sr-only) {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand);
+  opacity: 0.3;
+  animation: dot 1.2s infinite;
+}
+.ask-thinking span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.ask-thinking span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes dot {
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask-orb,
+  .ask-thinking span {
+    animation: none !important;
+  }
+}
+.ask-text {
+  font-size: 0.97rem;
+  line-height: 1.55;
+}
+.ask-text p {
+  margin: 0 0 10px;
+}
+.ask-text ul,
+.ask-text ol {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+.ask-text li {
+  margin: 2px 0;
+}
+.ask-input {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: var(--shadow-lg);
+  margin-top: 18px;
+  z-index: 5;
+}
+.ask-input:focus-within {
+  border-color: var(--brand);
+}
+.ask-input textarea {
+  flex: 1;
+  border: 0;
+  resize: none;
+  outline: none;
+  background: none;
+  padding: 9px 8px;
+  min-height: 42px;
+  max-height: 160px;
+  field-sizing: content;
+}
+@media (max-width: 900px) {
+  .ask-input {
+    bottom: 76px;
+  }
+  .ask-q {
+    max-width: 92%;
+  }
+}

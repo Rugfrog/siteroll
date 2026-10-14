@@ -2,7 +2,7 @@
 import { Router, type Request } from 'express';
 import { getDb, nowIso, parseFlags } from '../db';
 import { clock } from '../config';
-import { v, ValidationError } from '../lib/validate';
+import { asyncRoute, v, ValidationError } from '../lib/validate';
 import { toCsv } from '../lib/payroll';
 import { addDays, londonDate, londonTime, londonToUtc, mondayOf } from '../../shared/time';
 import { fmtDay, fmtTime } from '../../shared/format';
@@ -91,13 +91,13 @@ moneyRouter.get('/timesheets/:id', (req, res) => {
   res.json(view);
 });
 
-moneyRouter.get('/timesheets/:id/pdf', async (req, res) => {
+moneyRouter.get('/timesheets/:id/pdf', asyncRoute(async (req, res) => {
   const ts = loadTimesheet(req, v.id(req.params.id));
   if (!ts) return res.status(404).json({ error: 'Timesheet not found' });
   const pdf = await timesheetPdf(getDb(), ts.site_id, ts.week_start, { showRates: req.user!.type === 'agency' });
   res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="timesheet-${ts.site_id}-${ts.week_start}.pdf"` });
   res.send(pdf);
-});
+}));
 
 moneyRouter.post('/timesheets/:id/send', requireAgency, (req, res) => {
   const ts = loadTimesheet(req, v.id(req.params.id));
@@ -333,14 +333,14 @@ moneyRouter.post('/invoices/:id/status', requireAgency, (req, res) => {
   res.json({ ok: true });
 });
 
-moneyRouter.get('/invoices/:id/pdf', requireAgency, async (req, res) => {
+moneyRouter.get('/invoices/:id/pdf', requireAgency, asyncRoute(async (req, res) => {
   const db = getDb();
   const inv = db.prepare('SELECT number FROM invoices WHERE id = ?').get(v.id(req.params.id)) as { number: string } | undefined;
   if (!inv) return res.status(404).json({ error: 'Invoice not found' });
   const pdf = await invoicePdf(db, v.id(req.params.id));
   res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `${req.query.inline ? 'inline' : 'attachment'}; filename="${inv.number}.pdf"` });
   res.send(pdf);
-});
+}));
 
 /* ---------------- Payroll ---------------- */
 
