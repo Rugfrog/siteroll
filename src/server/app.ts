@@ -40,7 +40,7 @@ export function createApp(opts: AppOptions = {}) {
     if (config.isProd) {
       res.set(
         'Content-Security-Policy',
-        "default-src 'self'; img-src 'self' data: blob: https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+        "default-src 'self'; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
       );
     }
     if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');

@@ -261,9 +261,10 @@ export function getInvoices(db: DB, status: 'sent' | 'paid' | 'overdue' | 'unpai
   };
 }
 
-export function getMargins(db: DB, weeks: number, groupBy: 'site' | 'client' | 'week') {
+export function getMargins(db: DB, weeks: number, groupBy: 'site' | 'client' | 'week', week: string | null = null) {
   const thisWeek = mondayOf(londonDate(clock.now()));
-  const list = Array.from({ length: weeks }, (_, i) => addDays(thisWeek, -(weeks - 1 - i) * 7));
+  // One particular week, or the last N weeks including this one.
+  const list = week ? [resolveWeek(week)] : Array.from({ length: weeks }, (_, i) => addDays(thisWeek, -(weeks - 1 - i) * 7));
   const rows = marginRows(db, list);
   const groups = new Map<string, { charge: number; pay: number; mins: number }>();
   for (const r of rows) {
@@ -283,7 +284,9 @@ export function getMargins(db: DB, weeks: number, groupBy: 'site' | 'client' | '
     marginPercent: `${marginPct(g.charge, g.pay)}%`,
   });
   return {
-    period: `${weeks} week${weeks === 1 ? '' : 's'} from ${fmtDay(list[0])} to ${fmtDay(addDays(thisWeek, 6))} (this week so far is live; earlier weeks are as approved)`,
+    period: week
+      ? `${weekLabel(list[0])}${list[0] === thisWeek ? ' (so far, worked out live)' : ' (as approved, or live if not approved yet)'}`
+      : `${weeks} week${weeks === 1 ? '' : 's'} from ${fmtDay(list[0])} to ${fmtDay(addDays(thisWeek, 6))} (this week so far is live; earlier weeks are as approved)`,
     groupedBy: groupBy,
     rows: [...groups].map(([name, g]) => ({ name, ...fmt(g) })),
     total: fmt(total),

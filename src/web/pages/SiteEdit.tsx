@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { api, useApi } from '../api';
+import { osmTiles } from '../map';
 import { Icon } from '../icons';
 import { ActionButton, Card, Empty, ErrorBox, Field, Loading, PageHead, useToast } from '../ui';
 
@@ -182,7 +183,7 @@ function SiteMap({ lat, lng, radius, onMove }: { lat: number; lng: number; radiu
   useEffect(() => {
     if (!el.current || map.current) return;
     const m = L.map(el.current, { scrollWheelZoom: false }).setView([lat, lng], 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m);
+    osmTiles(19).addTo(m);
     const icon = L.divIcon({
       className: '',
       html: '<div style="width:26px;height:26px;border-radius:50% 50% 50% 0;background:var(--brand);transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)"></div>',

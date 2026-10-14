@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useApi, useLiveRefresh } from '../api';
+import { osmTiles } from '../map';
 import { Icon } from '../icons';
 import { ErrorBox, Loading } from '../ui';
 import { fmtDayLong, fmtHours, fmtMoney, fmtTime } from '../../shared/format';
@@ -199,7 +200,7 @@ function WallMap({ sites }: { sites: WallSite[] }) {
   useEffect(() => {
     if (!el.current || map.current) return;
     const m = L.map(el.current, { zoomControl: false, attributionControl: true, scrollWheelZoom: false, dragging: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(m);
+    osmTiles(18).addTo(m);
     map.current = m;
     return () => {
       m.remove();

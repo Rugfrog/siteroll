@@ -57,6 +57,11 @@ describe('Ask SiteRoll tools', () => {
     expect(T.getLiveBoard(db).sites).toHaveLength(3);
     const m = T.getMargins(db, 6, 'client');
     expect(m.rows.map((r) => r.name).sort()).toEqual(['Calder Construction Ltd', 'Colne Valley Developments']);
+    // Just last week, which must match that week's timesheets.
+    const last = T.getMargins(db, 6, 'site', '2026-10-07');
+    expect(last.period).toContain('Mon 5 Oct');
+    const brighouse = getTimesheetView(db, T.findSite(db, 'Brighouse').id, LAST_WEEK);
+    expect(last.rows.find((r) => r.name.includes('Brighouse'))!.margin).toBe(fmtMoney(brighouse.totals.chargePence - brighouse.totals.payPence));
   });
 
   it('reject bad dates instead of guessing', () => {
