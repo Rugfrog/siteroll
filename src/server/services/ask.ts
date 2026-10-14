@@ -17,6 +17,12 @@ export function askConfigured(): boolean {
   return !!(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
 }
 
+type RunnerParamsForDeps = Parameters<Anthropic['beta']['messages']['toolRunner']>[0];
+/** Tests swap in a fake Claude; the web page and WhatsApp both use these. */
+export const askDeps: { toolRunner?: (params: RunnerParamsForDeps) => PromiseLike<Anthropic.Beta.BetaMessage>; configured: () => boolean } = {
+  configured: () => askConfigured(),
+};
+
 export interface AskTurn {
   role: 'user' | 'assistant';
   text: string;

@@ -58,7 +58,8 @@ describe('fire alarm to every phone', () => {
     expect(rc.alerted).toBe(3);
     const texts = await fireTexts();
     expect(texts).toHaveLength(3);
-    expect(texts[0].body).toMatch(/^FIRE ALARM at Mill Lane Apartments, Marsden\. Leave by the nearest safe exit/);
+    expect(texts[0].body).toMatch(/FIRE ALARM at Mill Lane Apartments, Marsden\. Leave by the nearest safe exit/);
+    expect(texts[0].body).toMatch(/reply SAFE/);
     leeLink = texts.find((t) => t.recipient_name === 'Lee Pearson').link;
     expect(leeLink).toMatch(/^https:\/\/siteroll\.test\/safe\/[A-Za-z0-9_-]{30,}$/);
   });

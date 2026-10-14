@@ -50,6 +50,10 @@ Turning on fire alerts stores a push subscription for that phone (a web address 
 
 Name, email, and a scrambled (hashed) password. Login sessions expire after 14 days.
 
+## WhatsApp and texts
+
+Texts and WhatsApp messages are sent through Twilio, and WhatsApp messages also pass through WhatsApp (Meta). Both act as processors; name them in your privacy notice. Messages people send to SiteRoll's number (for example "SAFE", "YES", "APPROVE" or a question from the office) are kept with the time and number, so there's a record of what was agreed. Anyone can reply STOP to get ordinary texts instead of WhatsApp messages.
+
 ## Ask SiteRoll (AI assistant)
 
 If you switch on Ask SiteRoll, a question from agency staff, plus the SiteRoll data needed to answer it (for example names, trades, hours, rates, card expiry dates, invoice totals), is sent to Anthropic's Claude API to produce the answer. Anthropic acts as a processor. Name them as a supplier in your privacy notice, and check their current commercial terms and data processing addendum (including where data is processed and how long it is kept). Ask SiteRoll can only read data; it cannot change anything. Only agency staff can use it, not site managers or workers. Leave `ANTHROPIC_API_KEY` unset to keep it switched off.

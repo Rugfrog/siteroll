@@ -18,6 +18,15 @@ export const config = {
   publicUrl: (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, ''),
   https: process.env.HTTPS === '1' || process.env.HTTPS === 'true',
   dbPath: isTest ? ':memory:' : process.env.DB_PATH || 'data/siteroll.db',
+  /** Twilio sends real WhatsApp messages and texts. Without it, messages are simulated in the Outbox. */
+  twilio: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    // e.g. whatsapp:+14155238886 (Twilio's WhatsApp sandbox) or your approved WhatsApp sender
+    whatsappFrom: process.env.TWILIO_WHATSAPP_FROM || '',
+    // a Twilio phone number for ordinary texts (optional)
+    smsFrom: process.env.TWILIO_SMS_FROM || '',
+  },
   dataDir: resolve(process.env.DATA_DIR || 'data'),
   get uploadDir() {
     return resolve(this.dataDir, isTest ? 'test-uploads' : 'uploads');

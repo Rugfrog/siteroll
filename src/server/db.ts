@@ -26,6 +26,9 @@ function migrate(db: DB) {
   add('roll_call_people', 'safe_by', 'TEXT');
   add('roll_call_people', 'help_at', 'TEXT');
   add('roll_call_people', 'alert_token_hash', 'TEXT');
+  add('agency', 'message_channel', "TEXT NOT NULL DEFAULT 'whatsapp'");
+  add('outbox', 'status', "TEXT NOT NULL DEFAULT 'simulated'");
+  add('outbox', 'error', 'TEXT');
 }
 
 export function getDb(): DB {
@@ -39,7 +42,8 @@ export function setDb(db: DB) {
 
 /** Wipe every table (used by the demo reset before re-seeding). */
 export function clearAll(db: DB) {
-  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[];
+  // App settings (notification keys, the demo phone) survive a demo reset.
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'app_settings'").all() as { name: string }[];
   db.pragma('foreign_keys = OFF');
   db.transaction(() => {
     for (const t of tables) db.exec(`DELETE FROM "${t.name}"`);

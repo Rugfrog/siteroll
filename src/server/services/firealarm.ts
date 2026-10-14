@@ -79,7 +79,7 @@ export function raiseAlarm(db: DB, rollCallId: number): number {
       to: p.phone,
       toName: `${p.first_name} ${p.last_name}`,
       kind: 'fire',
-      body: `FIRE ALARM at ${p.site_name}. Leave by the nearest safe exit and go to the muster point now. When you're there, tap to say you're safe: ${runtime.baseUrl}${path}`,
+      body: `🔥 FIRE ALARM at ${p.site_name}. Leave by the nearest safe exit and go to the muster point now. When you're there, reply SAFE (or HELP if you need help), or tap: ${runtime.baseUrl}${path}`,
       link: `${runtime.baseUrl}${path}`,
     });
     // Fire and forget: a slow push service must never hold up the roll call.

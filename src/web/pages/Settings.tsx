@@ -151,6 +151,7 @@ export default function Settings() {
               </div>
             </div>
           </Card>
+          <WhatsAppSettings />
           <Card title="Agency staff">
             <ul className="list">
               {f.users.map((u: any) => (
@@ -179,4 +180,122 @@ function readAsDataUrl(file: File): Promise<string> {
     r.onerror = () => reject(new Error("Couldn't read that file"));
     r.readAsDataURL(file);
   });
+}
+
+function WhatsAppSettings() {
+  const state = useApi<any>('/api/whatsapp/status');
+  const toast = useToast();
+  const [testPhone, setTestPhone] = useState('');
+  const [demoPhone, setDemoPhone] = useState('');
+  const d = state.data;
+  // Arriving from the WhatsApp page's "WhatsApp settings" button.
+  useEffect(() => {
+    if (d && window.location.hash === '#whatsapp') document.getElementById('whatsapp')?.scrollIntoView({ block: 'start' });
+  }, [!!d]);
+  if (!d) return null;
+  return (
+    <section className="card" id="whatsapp">
+      <div className="card-head">
+        <div>
+          <h2>WhatsApp</h2>
+          <p>Messages to workers and site managers go by WhatsApp, falling back to a text.</p>
+        </div>
+        <span className={`badge ${d.whatsapp ? 'badge-green' : 'badge-amber'}`}>{d.whatsapp ? 'Connected' : 'Simulated'}</span>
+      </div>
+      <div className="card-pad stack" style={{ gap: 14 }}>
+        <Field label="Send messages by">
+          <select
+            className="select"
+            value={d.channel}
+            onChange={async (e) => {
+              await api.put('/api/whatsapp/settings', { channel: e.target.value });
+              state.reload();
+              toast('Saved');
+            }}
+          >
+            <option value="whatsapp">WhatsApp, falling back to a text</option>
+            <option value="sms">Text messages only</option>
+          </select>
+        </Field>
+        <div className="small">
+          <div>
+            WhatsApp: {d.whatsapp ? <strong>{d.whatsappFrom}{d.sandbox ? ' (Twilio sandbox)' : ''}</strong> : <span className="muted">not connected</span>}
+          </div>
+          <div>Texts: {d.sms ? <strong>{d.smsFrom}</strong> : <span className="muted">not connected</span>}</div>
+        </div>
+        {!d.whatsapp && (
+          <div className="note-box small">
+            To send real WhatsApp messages, add your Twilio details as <code>TWILIO_ACCOUNT_SID</code>, <code>TWILIO_AUTH_TOKEN</code> and <code>TWILIO_WHATSAPP_FROM</code> (see the README). Until then, everything is simulated in the Outbox and on the WhatsApp page.
+          </div>
+        )}
+        <Field label="Incoming messages" hint="paste into Twilio as 'When a message comes in'">
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <input className="input" readOnly value={d.webhookUrl} onFocus={(e) => e.target.select()} style={{ fontFamily: 'monospace', fontSize: '.8rem' }} />
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => navigator.clipboard?.writeText(d.webhookUrl).then(() => toast('Copied'))}
+            >
+              Copy
+            </button>
+          </div>
+        </Field>
+        <Field label="Send a test message">
+          <div className="row" style={{ flexWrap: 'nowrap' }}>
+            <input className="input" type="tel" placeholder="Your mobile" value={testPhone} onChange={(e) => setTestPhone(e.target.value)} />
+            <ActionButton
+              type="button"
+              className="btn btn-sm"
+              onClick={async () => {
+                const r = await api.post('/api/whatsapp/test', { phone: testPhone });
+                toast(r.simulated ? 'Test recorded in the Outbox (simulated)' : 'Test sent. Check your phone.');
+              }}
+            >
+              Send test
+            </ActionButton>
+          </div>
+        </Field>
+        {d.demoMode && (
+          <div className="card card-pad" style={{ background: '#fbfaf8' }}>
+            <strong>Demo: use your own phone</strong>
+            <p className="small muted" style={{ margin: '4px 0 8px' }}>
+              Puts your mobile on Callum (a worker), Gareth (a site manager) and the office login, so your WhatsApp can play every part: Ask SiteRoll, APPROVE, SAFE and YES. Kept when you reset the demo.
+              {d.demoPhone && (
+                <>
+                  {' '}
+                  Now set to <strong>{d.demoPhone}</strong>.
+                </>
+              )}
+            </p>
+            <div className="row" style={{ flexWrap: 'nowrap' }}>
+              <input className="input" type="tel" placeholder="Your mobile" value={demoPhone} onChange={(e) => setDemoPhone(e.target.value)} />
+              <ActionButton
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={async () => {
+                  await api.post('/api/whatsapp/demo-phone', { phone: demoPhone });
+                  state.reload();
+                  toast('Your phone is now Callum, Gareth and the office');
+                }}
+              >
+                Use my phone
+              </ActionButton>
+              {d.demoPhone && (
+                <ActionButton
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={async () => {
+                    await api.post('/api/whatsapp/demo-phone', { phone: null });
+                    state.reload();
+                  }}
+                >
+                  Clear
+                </ActionButton>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }

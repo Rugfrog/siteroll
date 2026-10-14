@@ -15,9 +15,13 @@ Workers sign in and out by scanning a QR code (or tapping an NFC tag) on the sit
 - **Friday sign-off in one tap** for the client, turning straight into invoices, payroll and margins.
 - **Ask SiteRoll:** questions in plain English ("What was our margin last week?", "Whose cards run out this month?"), answered by Claude from the agency's own figures.
 - **Office TV:** a full-screen live view for the office telly, with a map of sites, a live feed, and today's billed £ ticking up by the second.
+- **WhatsApp:** workers, site managers and the office deal with SiteRoll by WhatsApp:
+  - workers reply SAFE in a fire roll call, or YES to grab a shift;
+  - site managers reply APPROVE to sign off the week;
+  - the office asks Ask SiteRoll questions by WhatsApp.
 - Bookings and no-show alerts with replacements, compliance at the gate (CSCS/CPCS, inductions, right to work), timesheets with an edit history, and invoices, payroll and margins.
 
-- **DEMO.md** has a 6-minute walkthrough for a sales meeting.
+- **DEMO.md** has a 7-minute walkthrough for a sales meeting.
 - **PRIVACY.md** explains what's stored and why, for the agency's privacy notice.
 
 ---
@@ -81,6 +85,9 @@ Copy `.env.example` to `.env`. Everything is optional.
 | `ANTHROPIC_API_KEY` | none | Switches on Ask SiteRoll (get a key at console.anthropic.com) |
 | `ASK_DAILY_LIMIT` | `300` | Most questions Ask SiteRoll answers per day, so a shared link can't run up a bill |
 | `ASK_EFFORT` | `low` | How hard Claude thinks before answering: `low` (fastest), `medium` or `high` |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | none | Your Twilio account, for real WhatsApp messages and texts |
+| `TWILIO_WHATSAPP_FROM` | none | The WhatsApp number to send from, e.g. `whatsapp:+14155238886` (Twilio's sandbox) |
+| `TWILIO_SMS_FROM` | none | A Twilio phone number for ordinary texts (optional; also the fallback when WhatsApp can't deliver) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | made automatically | Keys for fire alert notifications. Set them to keep phones subscribed if the database is ever replaced. |
 
 ---
@@ -168,6 +175,36 @@ When anyone starts a fire roll call (the red button on the live board, or the bi
 3. Any **sign-in page that's open** turns into a full-screen red alarm within a few seconds, with an alarm tone and vibration.
 
 Workers tap **I'M SAFE** or **I NEED HELP**. "I need help" puts them at the top of the marshal's list in red, and texts the site's managers and agency staff at once. The marshal's screen updates live and shows who answered on their own phone; the PDF record includes it. It doesn't replace the site's fire alarm system or marshals. It replaces the paper register.
+
+## WhatsApp
+
+SiteRoll has its own WhatsApp number (through Twilio). Messages to workers and site managers go by WhatsApp first and fall back to an ordinary text. You can switch to texts only in **Settings → WhatsApp**, and anyone who replies **STOP** gets texts instead. People can also reply:
+
+| Who | Message | What happens |
+|---|---|---|
+| Worker, during a fire roll call | **SAFE** or **HELP** | Marked safe on the marshal's screen, or put at the top in red with the site manager texted |
+| Worker offered a shift | **YES** or **NO** | First YES is booked and told where to go; the site manager is told who's coming; later YESes are told it's taken |
+| Site manager | **APPROVE**, then **YES** | The week's hours are approved and locked, recorded as approved by WhatsApp |
+| Site manager | **ON SITE** | Who's on their sites and who hasn't turned up |
+| Agency staff | anything | Answered by Ask SiteRoll, with the same figures as the screens |
+| Anyone | **STOP** / **START** | Switch between WhatsApp and ordinary texts |
+
+To fill a no-show, press **Send a replacement** on the alert, then **Offer by WhatsApp**: every free worker of that trade gets the offer, and the alert shows how many are waiting.
+
+**Without Twilio** everything is simulated: the **WhatsApp** page shows each conversation in a phone-style chat. In demo mode you can type as any worker, site manager or member of staff, which is the easiest way to show it. The made-up demo numbers (07700 900xxx) are never sent for real.
+
+### Connect real WhatsApp (Twilio sandbox, about 10 minutes, free to try)
+
+1. Sign in at twilio.com. A trial account comes with free credit.
+2. In the Twilio Console, open **Messaging → Try it out → Send a WhatsApp message**. Note the sandbox number (+1 415 523 8886) and your join code.
+3. On your phone, send the join message (e.g. `join happy-tiger`) to that number in WhatsApp.
+4. In the sandbox's settings, set **When a message comes in** to `https://YOUR-SITE/api/whatsapp/twilio` (method POST). SiteRoll shows the exact address in **Settings → WhatsApp**.
+5. Give SiteRoll your Twilio details: `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` (on the Twilio Console home page), and `TWILIO_WHATSAPP_FROM=whatsapp:+14155238886`. Put them in `.env`, or in Render under **Environment**, and restart.
+6. For a demo, go to **Settings → WhatsApp → Use my phone** and enter your mobile. Your WhatsApp is now Callum (a worker), Gareth (a site manager) and the office login, so you can show every reply from one phone.
+
+The sandbox only messages phones that have sent the join code, and WhatsApp only allows free-form messages within 24 hours of the person's last message. So message the number ("hi") before a demo. For a real agency, register your own WhatsApp sender in Twilio and get message templates approved for messages SiteRoll starts itself (fire alarms, shift offers, sign-off requests). Twilio guides you through both.
+
+Incoming messages are checked against Twilio's signature, so nobody can fake a reply. The code is in `src/server/services/whatsappBot.ts` (the replies) and `src/server/services/twilio.ts` (sending).
 
 ## Office TV
 

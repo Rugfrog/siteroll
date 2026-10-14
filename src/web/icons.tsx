@@ -40,6 +40,7 @@ const P: Record<string, string> = {
   hardhat: 'M2 18h20M4 18v-3a8 8 0 0 1 16 0v3M10 7V5h4v2M12 7v4',
   sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z',
   tv: 'M2 5h20v13H2zM8 22h8M12 18v4',
+  whatsapp: 'M3.5 20.5l1.3-4.2A8.6 8.6 0 1 1 8 19.3l-4.5 1.2zM9 8.5c0 3 2.5 6 6 6.5l1-1.6-2-1-1 1c-1.1-.5-2-1.4-2.5-2.5l1-1-1-2-1.5 1z',
 };
 
 export type IconName = keyof typeof P;

@@ -203,7 +203,14 @@ export function AlertList({ alerts, onChange }: { alerts: any[]; onChange: () =>
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div>{a.message}</div>
-              <div className="tiny muted">{fmtDateTime(a.created_at)}</div>
+              <div className="tiny muted">
+                {fmtDateTime(a.created_at)}
+                {a.offers_open > 0 && (
+                  <span className="badge badge-green" style={{ marginLeft: 6 }}>
+                    Offered to {a.offers_open} by WhatsApp · waiting for a YES
+                  </span>
+                )}
+              </div>
               {isAgency && ['no_show', 'missed_signout', 'query', 'compliance'].includes(a.type) && (
                 <div className="row mt-s" style={{ gap: 6 }}>
                   {a.type === 'no_show' && (
@@ -262,6 +269,26 @@ function ReplacementModal({ alert, onClose, onDone }: { alert: any; onClose: () 
         {alert.site_name}. We'll text the replacement the site address, and tell the site manager they're on the way.
       </p>
       {error && <ErrorBox error={error} />}
+      {state.data && state.data.workers.some((w: any) => w.sameTrade && w.card !== 'expired') && (
+        <div className="offer-box">
+          <div>
+            <strong>Let them reply to claim it</strong>
+            <div className="small muted">
+              WhatsApp every free {state.data.trade.toLowerCase()}. The first to reply YES is booked and told where to go, and the site manager is told.
+            </div>
+          </div>
+          <ActionButton
+            className="btn btn-primary"
+            onClick={async () => {
+              const r = await api.post(`/api/whatsapp/offer/${alert.id}`, {});
+              toast(`Offered to ${r.offered} by WhatsApp. First to reply YES gets it.`);
+              onDone();
+            }}
+          >
+            <Icon name="whatsapp" /> Offer by WhatsApp
+          </ActionButton>
+        </div>
+      )}
       {!state.data ? (
         <Loading />
       ) : (

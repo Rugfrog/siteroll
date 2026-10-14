@@ -27,6 +27,7 @@ const ClientApproval = lazy(() => import('./pages/ClientApproval'));
 const RollCallHistory = lazy(() => import('./pages/RollCallHistory'));
 const Ask = lazy(() => import('./pages/Ask'));
 const Wall = lazy(() => import('./pages/Wall'));
+const WhatsAppPage = lazy(() => import('./pages/WhatsApp'));
 
 export interface Me {
   user: { type: 'agency' | 'manager'; id: number; name: string; clientId: number | null; siteIds: number[] | null } | null;
@@ -50,7 +51,9 @@ function applyBrand(colour?: string) {
 
 function NavHook() {
   const nav = useNavigate();
-  useEffect(() => setNavigate((to) => nav(to)), [nav]);
+  useEffect(() => {
+    setNavigate((to) => nav(to));
+  }, [nav]);
   return null;
 }
 
@@ -160,7 +163,9 @@ function Shell({ items, groups, sub, children }: { items: NavItem[]; groups?: { 
   const { me, reload } = useMe();
   const [menu, setMenu] = useState(false);
   const loc = useLocation();
-  useEffect(() => setMenu(false), [loc.pathname]);
+  useEffect(() => {
+    setMenu(false);
+  }, [loc.pathname]);
   const logout = async () => {
     await api.post('/api/auth/logout');
     await reload();
@@ -238,7 +243,9 @@ function Shell({ items, groups, sub, children }: { items: NavItem[]; groups?: { 
 }
 
 function AgencyShell() {
-  useEffect(() => setRole('agency'), []);
+  useEffect(() => {
+    setRole('agency');
+  }, []);
   const counts = useApi<{ alerts: unknown[]; awaiting: unknown[] }>('/api/dashboard');
   const items: NavItem[] = [
     { to: '/', label: 'Home', icon: 'home', end: true, mobile: true },
@@ -253,6 +260,7 @@ function AgencyShell() {
     { to: '/compliance', label: 'Compliance', icon: 'shield' },
     { to: '/clients', label: 'Clients & sites', icon: 'building' },
     { to: '/rollcalls', label: 'Fire roll calls', icon: 'flame' },
+    { to: '/whatsapp', label: 'WhatsApp', icon: 'whatsapp' },
     { to: '/outbox', label: 'Outbox', icon: 'mail' },
     { to: '/settings', label: 'Settings', icon: 'settings' },
   ];
@@ -285,6 +293,7 @@ function AgencyShell() {
         <Route path="sites/:id" element={<SiteEdit />} />
         <Route path="rollcalls" element={<RollCallHistory />} />
         <Route path="outbox" element={<Outbox />} />
+        <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -293,7 +302,9 @@ function AgencyShell() {
 }
 
 function ClientShell() {
-  useEffect(() => setRole('manager'), []);
+  useEffect(() => {
+    setRole('manager');
+  }, []);
   const items: NavItem[] = [
     { to: '/client', label: 'On site now', icon: 'live', end: true, mobile: true },
     { to: '/client/timesheets', label: 'Timesheets', icon: 'clipboard', mobile: true },

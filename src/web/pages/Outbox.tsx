@@ -8,6 +8,8 @@ import { fmtDateTime, fmtPhone } from '../../shared/format';
 const KINDS: [string, string][] = [
   ['', 'Everything'],
   ['fire', 'Fire alarms'],
+  ['offer', 'Job offers'],
+  ['chat', 'WhatsApp replies'],
   ['code', 'Sign-in codes'],
   ['signoff', 'Sign-off requests'],
   ['no_show', 'No-shows'],
@@ -72,8 +74,8 @@ export default function Outbox() {
               <div>
                 {rows.map((m) => (
                   <article key={m.id} className="message">
-                    <span className={`icon ${m.channel}`} aria-label={m.channel === 'sms' ? 'Text message' : 'Email'}>
-                      <Icon name={m.channel === 'sms' ? 'sms' : 'mail'} />
+                    <span className={`icon ${m.channel}`} aria-label={m.channel === 'sms' ? 'Text message' : m.channel === 'whatsapp' ? 'WhatsApp' : 'Email'}>
+                      <Icon name={m.channel === 'sms' ? 'sms' : m.channel === 'whatsapp' ? 'whatsapp' : 'mail'} />
                     </span>
                     <div style={{ minWidth: 0 }}>
                       <div className="spread">
@@ -81,7 +83,11 @@ export default function Outbox() {
                           <strong>{m.recipient_name || (m.channel === 'sms' ? fmtPhone(m.recipient) : m.recipient)}</strong>{' '}
                           <span className="small muted">{m.channel === 'sms' ? fmtPhone(m.recipient) : m.recipient}</span>
                         </div>
-                        <span className="tiny muted nowrap">{fmtDateTime(m.created_at)}</span>
+                        <span className="tiny muted nowrap">
+                          {m.channel === 'whatsapp' ? 'WhatsApp · ' : m.channel === 'sms' ? 'Text · ' : 'Email · '}
+                          {m.status === 'sent' ? 'Sent · ' : m.status === 'failed' ? <span style={{ color: 'var(--red)' }} title={m.error ?? ''}>Not delivered · </span> : m.status === 'sending' ? 'Sending · ' : ''}
+                          {fmtDateTime(m.created_at)}
+                        </span>
                       </div>
                       {m.subject && <div className="small" style={{ fontWeight: 600, marginTop: 2 }}>{m.subject}</div>}
                       <div className="bubble">{linkify(m.body)}</div>

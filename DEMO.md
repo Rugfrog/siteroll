@@ -1,4 +1,4 @@
-# SiteRoll: 6-minute demo script
+# SiteRoll: 7-minute demo script
 
 For a meeting with a labour agency owner. You need a laptop and your own phone.
 
@@ -92,7 +92,18 @@ On the **phone**:
 
 > "Ask it anything about your workers, sites, hours or money. It reads the same figures as the rest of SiteRoll, so the numbers match, and it can't change anything."
 
-### 5:30 Close
+### 5:20 Wow 6: Run it from WhatsApp
+
+Open **WhatsApp** in the menu. It's a phone-style chat; pick who you're messaging as on the left:
+1. **Michelle Lockwood (office):** tap **Who's on site?** and Ask SiteRoll answers in WhatsApp.
+2. **Gareth Holroyd (site manager):** tap **APPROVE**, then **YES**. The week is approved without opening anything.
+3. Back on **On site now**, open Mark Dyson's no-show → **Send a replacement** → **Offer by WhatsApp**. Then as **Paul Crowther**, tap **YES**: "It's yours, Paul…", and Gareth is told he's coming.
+
+> "Your lads already live on WhatsApp. Fire alarm: reply SAFE. Shift going: first to reply YES gets it. Site manager signs off the week from WhatsApp. And you can ask your business a question from the pub."
+
+With Twilio connected (README → WhatsApp), do the same from your real phone. Set **Settings → WhatsApp → Use my phone** first, and send the SiteRoll number "hi" before the meeting.
+
+### 5:50 Close
 
 Back to the **Office TV**.
 

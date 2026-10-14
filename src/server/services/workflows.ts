@@ -82,7 +82,7 @@ export function sendSignoffRequest(db: DB, timesheetId: number): { sent: number;
   const headline = `${client.name} – ${site.name}: ${workers} worker${workers === 1 ? '' : 's'}, ${hours.toLocaleString('en-GB')} hours this week (w/c ${fmtDay(ts.week_start)}). Review and approve.`;
   for (const m of managers) {
     const link = createMagicLink(db, m.id, 'signoff', ts.id);
-    if (m.phone) send.sms({ to: m.phone, toName: m.name, kind: 'signoff', body: `${headline} ${link}`, link });
+    if (m.phone) send.sms({ to: m.phone, toName: m.name, kind: 'signoff', body: `${headline}\n\nReply APPROVE to approve them, or check them first: ${link}`, link });
     if (m.email)
       send.email({
         to: m.email,
@@ -172,7 +172,13 @@ export function availableReplacements(db: DB, alertId: number) {
   };
 }
 
-export function sendReplacement(db: DB, alertId: number, replacementId: number, by: string): { ok: boolean; message?: string } {
+export function sendReplacement(
+  db: DB,
+  alertId: number,
+  replacementId: number,
+  by: string,
+  opts: { tellReplacement?: boolean } = {},
+): { ok: boolean; message?: string; site?: SiteRow } {
   const alert = db.prepare("SELECT * FROM alerts WHERE id = ? AND type = 'no_show'").get(alertId) as
     | { id: number; worker_id: number; site_id: number; booking_id: number; date: string; resolved_at: string | null }
     | undefined;
@@ -188,12 +194,15 @@ export function sendReplacement(db: DB, alertId: number, replacementId: number, 
     db.prepare("INSERT INTO bookings (worker_id, site_id, date, status, replaces_booking_id, created_at) VALUES (?,?,?,'booked',?,?)").run(rep.id, site.id, alert.date, alert.booking_id, now);
     db.prepare('UPDATE alerts SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE id = ?').run(now, by, `Replaced by ${fullName(rep)}`, alert.id);
   })();
-  send.sms({
-    to: rep.phone,
-    toName: fullName(rep),
-    kind: 'replacement',
-    body: `Hi ${rep.first_name}, can you get to ${site.name} today (${site.address}, ${site.postcode})? Report to the site cabin and scan the SiteRoll board to sign in. Thanks, ${agencyRow(db).name}`,
-  });
+  // (When they've just said YES on WhatsApp, the bot tells them where to go in its reply instead.)
+  if (opts.tellReplacement !== false) {
+    send.sms({
+      to: rep.phone,
+      toName: fullName(rep),
+      kind: 'replacement',
+      body: `Hi ${rep.first_name}, can you get to ${site.name} today (${site.address}, ${site.postcode})? Report to the site cabin and scan the SiteRoll board to sign in. Thanks, ${agencyRow(db).name}`,
+    });
+  }
   const managers = db
     .prepare('SELECT m.* FROM managers m JOIN manager_sites ms ON ms.manager_id = m.id WHERE ms.site_id = ? AND m.active = 1')
     .all(site.id) as { name: string; phone: string; email: string }[];
@@ -202,7 +211,7 @@ export function sendReplacement(db: DB, alertId: number, replacementId: number, 
     if (m.phone) send.sms({ to: m.phone, toName: m.name, kind: 'replacement', body });
   }
   notify({ type: 'alert', siteId: site.id });
-  return { ok: true };
+  return { ok: true, site };
 }
 
 /* ---------------- Invoices ---------------- */

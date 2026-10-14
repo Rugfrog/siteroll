@@ -9,7 +9,7 @@ import { hashPassword, randomToken } from './lib/security';
 import { approveTimesheet, ensureTimesheet } from './services/timesheets';
 import { closeMissedSignOuts } from './services/attendance';
 import { createInvoice, runNoShowCheck, sendSignoffRequest } from './services/workflows';
-import { SimulatedMessenger, setMessenger } from './services/messaging';
+import { OutboxMessenger, setMessenger } from './services/messaging';
 
 function rng(seed: number) {
   let a = seed >>> 0;
@@ -69,6 +69,21 @@ export const WORKERS: WorkerSeed[] = [
 
 export const phoneFor = (i: number) => `07700900${String(101 + i).padStart(3, '0')}`;
 
+/** The made-up numbers the demo starts with for the people a presenter's own phone can stand in for. */
+const DEMO_STAND_INS = { worker: phoneFor(1), manager: '07700900501', staff: '07700900999' };
+
+/**
+ * Demo only: if a presenter has set their own mobile, put it on Callum (worker), Gareth (site manager)
+ * and the office login, so their WhatsApp can play every part. Kept across demo resets.
+ */
+export function applyDemoPhone(db: DB) {
+  const row = db.prepare("SELECT value FROM app_settings WHERE key = 'demo_phone'").get() as { value: string } | undefined;
+  const mine = row?.value ?? null;
+  db.prepare("UPDATE workers SET phone = ? WHERE first_name = 'Callum' AND last_name = 'Ainley'").run(mine ?? DEMO_STAND_INS.worker);
+  db.prepare("UPDATE managers SET phone = ? WHERE name = 'Gareth Holroyd'").run(mine ?? DEMO_STAND_INS.manager);
+  db.prepare('UPDATE users SET phone = ? WHERE email = ?').run(mine ?? DEMO_STAND_INS.staff, DEMO_LOGIN.email);
+}
+
 /** Who is on which site in the current week (by surname) — the rest of the crew are on other work. */
 const THIS_WEEK: Record<string, string[]> = {
   B: ['Haigh', 'Ainley', 'Sutcliffe', 'Nowak', 'Booth', 'Firth', 'Rahman', 'Dyson:Mark', 'Iqbal'],
@@ -81,7 +96,7 @@ export function seed(db: DB, opts: { today?: string } = {}) {
   const rand = rng(20261013);
   const between = (a: number, b: number) => Math.round(a + rand() * (b - a));
   const chance = (p: number) => rand() < p;
-  setMessenger(new SimulatedMessenger());
+  setMessenger(new OutboxMessenger());
   clearAll(db);
 
   const today = opts.today ?? londonDate(realNow);
@@ -489,6 +504,7 @@ export function seed(db: DB, opts: { today?: string } = {}) {
 
   // No-show alerts for anyone booked who hasn't arrived 15 minutes after the start.
   runNoShowCheck(db);
+  applyDemoPhone(db);
 
   return { today, thisWeek, sites: { siteB, siteH, siteM }, managers: { mgrB, mgrH, mgrM }, clients: { calder, colne } };
 }

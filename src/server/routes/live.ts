@@ -42,7 +42,9 @@ liveRouter.get('/alerts', (req, res) => {
   const open = req.query.all ? '' : 'AND al.resolved_at IS NULL';
   const rows = db
     .prepare(
-      `SELECT al.*, w.first_name, w.last_name, w.phone, s.name AS site_name FROM alerts al
+      `SELECT al.*, w.first_name, w.last_name, w.phone, s.name AS site_name,
+         (SELECT COUNT(*) FROM job_offers o WHERE o.alert_id = al.id AND o.status = 'open') AS offers_open
+       FROM alerts al
        LEFT JOIN workers w ON w.id = al.worker_id LEFT JOIN sites s ON s.id = al.site_id
        WHERE 1 = 1 ${open} ORDER BY al.created_at DESC LIMIT 200`,
     )

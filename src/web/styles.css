@@ -2444,3 +2444,296 @@ body.wall-body {
     padding: 0 16px 18px;
   }
 }
+
+/* ---------- WhatsApp ---------- */
+
+.message .icon.whatsapp {
+  background: #dcf8c6;
+  color: #128c4b;
+}
+.offer-box {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  background: #e9f9ef;
+  border: 1px solid #bfe8cd;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.wa-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.wa-people {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 140px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.wa-people-list {
+  overflow-y: auto;
+  padding: 0 6px 8px;
+}
+.wa-group {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 650;
+  padding: 10px 10px 4px;
+}
+.wa-person {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.wa-person:hover {
+  background: #f4f3ef;
+}
+.wa-person.on {
+  background: #e7f7ec;
+}
+.wa-person-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.wa-person-name {
+  font-weight: 650;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.wa-person-sub {
+  font-size: 0.78rem;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wa-person-time {
+  font-size: 0.72rem;
+  color: var(--muted);
+  align-self: flex-start;
+  margin-top: 2px;
+}
+.wa-phone {
+  max-width: 560px;
+  width: 100%;
+  margin: 0 auto;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 8px solid #15171c;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  height: min(78vh, 760px);
+  background: #efeae2;
+}
+.wa-head {
+  background: #075e54;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.wa-head-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--brand);
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 2px solid rgb(255 255 255 / 70%);
+}
+.wa-head-avatar svg {
+  width: 20px;
+  height: 20px;
+}
+.wa-head-name {
+  display: block;
+  font-weight: 700;
+}
+.wa-head-sub {
+  display: block;
+  font-size: 0.78rem;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wa-chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: #efeae2;
+  background-image: radial-gradient(rgb(0 0 0 / 3%) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+.wa-note {
+  align-self: center;
+  background: #fff6c5;
+  color: #54471a;
+  font-size: 0.8rem;
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin: 6px 0;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 8%);
+}
+.wa-bubble {
+  max-width: 82%;
+  padding: 6px 9px 5px;
+  border-radius: 9px;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 10%);
+  font-size: 0.92rem;
+  line-height: 1.38;
+  word-break: break-word;
+}
+.wa-bubble.them {
+  align-self: flex-start;
+  background: #fff;
+  border-top-left-radius: 2px;
+}
+.wa-bubble.me {
+  align-self: flex-end;
+  background: #d9fdd3;
+  border-top-right-radius: 2px;
+}
+.wa-meta {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  font-size: 0.68rem;
+  color: #667781;
+  margin-top: 2px;
+}
+.wa-ticks {
+  color: #53bdeb;
+  font-size: 0.72rem;
+  letter-spacing: -0.15em;
+}
+.wa-sms {
+  background: #eceff1;
+  border-radius: 4px;
+  padding: 0 4px;
+}
+.wa-failed {
+  color: var(--red);
+  font-weight: 600;
+}
+.wa-typing {
+  display: flex;
+  gap: 4px;
+  padding: 10px 12px;
+}
+.wa-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8696a0;
+  animation: dot 1.2s infinite;
+}
+.wa-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.wa-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.wa-quick {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 0;
+  overflow-x: auto;
+  background: #f0f2f5;
+}
+.wa-chip {
+  border: 1px solid #d1d7db;
+  background: #fff;
+  color: #075e54;
+  font-weight: 600;
+  font-size: 0.8rem;
+  border-radius: 99px;
+  padding: 5px 11px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wa-chip:hover {
+  background: #e7f7ec;
+}
+.wa-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px 10px;
+  background: #f0f2f5;
+}
+.wa-input input {
+  flex: 1;
+  border: 0;
+  border-radius: 99px;
+  padding: 10px 14px;
+  background: #fff;
+  outline: none;
+  min-width: 0;
+}
+.wa-send {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 0;
+  background: #00a884;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+}
+.wa-send:disabled {
+  opacity: 0.5;
+}
+.wa-send svg {
+  width: 19px;
+  height: 19px;
+}
+.wa-readonly {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #54656f;
+  background: #f0f2f5;
+}
+@media (max-width: 900px) {
+  .wa-layout {
+    grid-template-columns: 1fr;
+  }
+  .wa-people {
+    position: static;
+    max-height: 260px;
+  }
+  .wa-phone {
+    height: 70vh;
+    border-width: 0;
+    border-radius: 16px;
+  }
+}

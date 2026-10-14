@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS agency (
   payment_terms_days INTEGER NOT NULL DEFAULT 30,
   photo_retention_days INTEGER NOT NULL DEFAULT 90,
   next_invoice_number INTEGER NOT NULL DEFAULT 1,
+  message_channel TEXT NOT NULL DEFAULT 'whatsapp',  -- whatsapp (falls back to text) | sms
   yard_lat REAL,
   yard_lng REAL
 );
@@ -314,10 +315,50 @@ CREATE TABLE IF NOT EXISTS outbox (
   recipient_name TEXT NOT NULL DEFAULT '',
   subject TEXT NOT NULL DEFAULT '',
   body TEXT NOT NULL,
-  kind TEXT NOT NULL,        -- code | no_show | signoff | invoice | magic_link | replacement | missed_signout | compliance | other
+  kind TEXT NOT NULL,        -- code | no_show | signoff | invoice | magic_link | replacement | missed_signout | compliance | fire | offer | chat | other
   link TEXT,
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'simulated',  -- simulated | sending | sent | failed
+  error TEXT
+);
+
+-- Messages people send to SiteRoll's WhatsApp (or text) number
+CREATE TABLE IF NOT EXISTS inbox (
+  id INTEGER PRIMARY KEY,
+  phone TEXT NOT NULL,
+  channel TEXT NOT NULL,     -- whatsapp | sms
+  body TEXT NOT NULL,
+  handled_as TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_inbox_phone ON inbox(phone, created_at);
+
+-- A short conversation in progress, e.g. "Reply YES to approve"
+CREATE TABLE IF NOT EXISTS chat_state (
+  phone TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  data TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+
+-- People who replied STOP: send them ordinary texts instead of WhatsApp
+CREATE TABLE IF NOT EXISTS wa_optouts (
+  phone TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL
+);
+
+-- No-show cover offered to free workers by WhatsApp: first to reply YES gets it
+CREATE TABLE IF NOT EXISTS job_offers (
+  id INTEGER PRIMARY KEY,
+  alert_id INTEGER NOT NULL REFERENCES alerts(id) ON DELETE CASCADE,
+  worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+  site_id INTEGER NOT NULL,
+  date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',   -- open | won | filled | declined
+  sent_at TEXT NOT NULL,
+  responded_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_offers_worker ON job_offers(worker_id, status);
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,

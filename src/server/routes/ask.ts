@@ -8,7 +8,7 @@ import { RateLimiter } from '../lib/security';
 import { asyncRoute, ValidationError } from '../lib/validate';
 import { londonDate } from '../../shared/time';
 import { requireAgency } from '../auth';
-import { ASK_MODEL, askConfigured, runAsk, type AskEvent, type AskTurn, type ToolRunnerFn } from '../services/ask';
+import { ASK_MODEL, askDeps, runAsk, type AskEvent, type AskTurn } from '../services/ask';
 
 export const askRouter = Router();
 askRouter.use('/ask', requireAgency);
@@ -18,8 +18,7 @@ const perPerson = new RateLimiter(20, 10 * 60000);
 const DAILY_LIMIT = Number(process.env.ASK_DAILY_LIMIT || 300);
 const daily = { date: '', count: 0 };
 
-/** Tests swap in a fake Claude. */
-export const askDeps: { toolRunner?: ToolRunnerFn; configured: () => boolean } = { configured: askConfigured };
+export { askDeps };
 
 askRouter.get('/ask/status', (_req, res) => {
   res.json({ enabled: askDeps.configured(), model: ASK_MODEL });
