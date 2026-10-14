@@ -116,6 +116,7 @@ export function createApp(opts: AppOptions = {}) {
   else if (opts.distDir) app.use(express.static(opts.distDir, { index: false, maxAge: '7d', setHeaders: (res, p) => /sw\.js$|\.webmanifest$/.test(p) && res.set('Cache-Control', 'no-cache') }));
 
   app.get('/s/:token', sendHtml('worker.html'));
+  app.get('/safe/:token', sendHtml('worker.html'));
   app.get('*', sendHtml('index.html'));
 
   // Errors

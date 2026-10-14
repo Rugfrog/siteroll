@@ -7,6 +7,7 @@ import { actorName, canSeeSite, requireStaff } from '../auth';
 import { decideManual } from '../services/attendance';
 import { live, notify, type LiveEvent } from '../services/events';
 import { liveBoard } from '../services/board';
+import { raiseAlarm } from '../services/firealarm';
 import { rollCallPdf } from '../pdf/documents';
 
 export const liveRouter = Router();
@@ -94,6 +95,9 @@ function rollCallView(rc: RollCallRow) {
     detail: string;
     is_visitor: number;
     safe_at: string | null;
+    safe_by: string | null;
+    help_at: string | null;
+    alert_token_hash: string | null;
   }[];
   return {
     id: rc.id,
@@ -104,9 +108,21 @@ function rollCallView(rc: RollCallRow) {
     startedAt: rc.started_at,
     finishedAt: rc.finished_at,
     notes: rc.notes,
-    people: people.map((p) => ({ id: p.id, name: p.name, detail: p.detail, visitor: !!p.is_visitor, safeAt: p.safe_at })),
+    people: people.map((p) => ({
+      id: p.id,
+      name: p.name,
+      detail: p.detail,
+      visitor: !!p.is_visitor,
+      safeAt: p.safe_at,
+      safeBy: p.safe_by,
+      helpAt: p.safe_at ? null : p.help_at,
+      alerted: !!p.alert_token_hash,
+    })),
     total: people.length,
     safe: people.filter((p) => p.safe_at).length,
+    alerted: people.filter((p) => p.alert_token_hash).length,
+    safeByPhone: people.filter((p) => p.safe_by === 'phone').length,
+    needHelp: people.filter((p) => p.help_at && !p.safe_at).length,
   };
 }
 
@@ -125,6 +141,8 @@ liveRouter.post('/rollcalls', (req, res) => {
     .all(siteId) as { worker_id: number; first_name: string; last_name: string; trade: string; in_at: string }[];
   const ins = db.prepare('INSERT INTO roll_call_people (roll_call_id, worker_id, name, detail) VALUES (?,?,?,?)');
   for (const p of people) ins.run(id, p.worker_id, `${p.first_name} ${p.last_name}`, p.trade);
+  // Text (and push) everyone on site: their phones turn into an "Are you safe?" alarm.
+  raiseAlarm(db, id);
   notify({ type: 'rollcall', siteId });
   res.json(rollCallView(db.prepare('SELECT * FROM roll_calls WHERE id = ?').get(id) as RollCallRow));
 });
@@ -148,8 +166,9 @@ liveRouter.post('/rollcalls/:id/mark', (req, res) => {
   const personId = v.id(req.body?.personId, 'person');
   const safe = v.bool(req.body?.safe);
   getDb()
-    .prepare('UPDATE roll_call_people SET safe_at = ? WHERE id = ? AND roll_call_id = ?')
-    .run(safe ? nowIso(clock.now()) : null, personId, rc.id);
+    .prepare('UPDATE roll_call_people SET safe_at = ?, safe_by = ? WHERE id = ? AND roll_call_id = ?')
+    .run(safe ? nowIso(clock.now()) : null, safe ? req.user!.name : null, personId, rc.id);
+  notify({ type: 'rollcall', siteId: rc.site_id });
   res.json(rollCallView(rc));
 });
 

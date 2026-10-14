@@ -11,6 +11,8 @@ import { openShiftFor, requestManual, signIn, signOut } from '../services/attend
 import { send } from '../services/messaging';
 import { agencyRow } from '../services/workflows';
 import { cardStatus, type ClientRow, type SiteRow, type WorkerRow } from '../services/rules';
+import { alarmForToken, alarmForWorker, AlarmError, markFromPhone, type AlarmInfo } from '../services/firealarm';
+import { hasSubscription, saveSubscription, vapidKeys } from '../services/push';
 
 export const codeLimiterPhone = new RateLimiter(3, 15 * 60000);
 export const codeLimiterIp = new RateLimiter(10, 15 * 60000);
@@ -59,6 +61,7 @@ workerRouter.get('/site/:token', (req, res) => {
       signedIn: open ? { here: open.site_id === site.id, siteName: openSite!.name, since: open.in_at } : null,
       card: cardStatus(w.card_expiry, today),
       inducted: !!db.prepare('SELECT 1 FROM inductions WHERE worker_id = ? AND site_id = ?').get(w.id, site.id),
+      alertsOn: hasSubscription(db, w.id),
     };
   }
   res.json({
@@ -155,5 +158,78 @@ workerRouter.post('/forget', (req, res) => {
   const token = req.cookies?.[DEVICE_COOKIE];
   if (token) getDb().prepare('DELETE FROM devices WHERE token_hash = ?').run(hashToken(token));
   res.clearCookie(DEVICE_COOKIE, { path: '/' });
+  res.json({ ok: true });
+});
+
+/* ---------------- Fire alarm ---------------- */
+
+const alarmView = (a: AlarmInfo | null) =>
+  a && {
+    site: a.site,
+    name: a.name,
+    startedAt: a.startedAt,
+    finished: a.finished,
+    status: a.status,
+    safeAt: a.safeAt,
+    helpAt: a.helpAt,
+    total: a.total,
+    safe: a.safe,
+  };
+
+const statusOf = (x: unknown) => v.oneOf(x, 'status', ['safe', 'help'] as const);
+
+/** Polled by an open sign-in page: is there a roll call I'm in right now? */
+workerRouter.get('/alarm', (req, res) => {
+  const workerId = deviceWorker(req);
+  if (!workerId) return res.json({ alarm: null });
+  res.json({ alarm: alarmView(alarmForWorker(getDb(), workerId)) });
+});
+
+workerRouter.post('/alarm', (req, res) => {
+  const workerId = deviceWorker(req);
+  const a = workerId ? alarmForWorker(getDb(), workerId) : null;
+  if (!a) return res.status(404).json({ error: 'There is no roll call running for you' });
+  try {
+    res.json({ alarm: alarmView(markFromPhone(getDb(), a, statusOf(req.body?.status))) });
+  } catch (e) {
+    if (e instanceof AlarmError) return res.status(400).json({ error: e.message });
+    throw e;
+  }
+});
+
+/** The personal link in the fire alarm text. Works on any phone, no setup needed. */
+function agencyBits() {
+  const a = agencyRow(getDb());
+  return { name: a.name, phone: a.phone, colour: a.brand_colour, hasLogo: !!a.logo_path };
+}
+
+workerRouter.get('/safe/:token', (req, res) => {
+  const a = alarmForToken(getDb(), String(req.params.token));
+  if (!a) return res.status(404).json({ error: 'This link has expired or is not recognised.' });
+  res.json({ alarm: alarmView(a), agency: agencyBits() });
+});
+
+workerRouter.post('/safe/:token', (req, res) => {
+  const a = alarmForToken(getDb(), String(req.params.token));
+  if (!a) return res.status(404).json({ error: 'This link has expired or is not recognised.' });
+  try {
+    res.json({ alarm: alarmView(markFromPhone(getDb(), a, statusOf(req.body?.status))) });
+  } catch (e) {
+    if (e instanceof AlarmError) return res.status(400).json({ error: e.message });
+    throw e;
+  }
+});
+
+/* ---------------- Fire alerts on this phone (web push) ---------------- */
+
+workerRouter.get('/push', (req, res) => {
+  const workerId = deviceWorker(req);
+  res.json({ publicKey: vapidKeys(getDb()).publicKey, subscribed: workerId ? hasSubscription(getDb(), workerId) : false });
+});
+
+workerRouter.post('/push', (req, res) => {
+  const workerId = deviceWorker(req);
+  if (!workerId) return res.status(401).json({ error: 'This phone needs to be set up first' });
+  if (!saveSubscription(getDb(), workerId, req.body?.subscription)) return res.status(400).json({ error: 'That subscription looks wrong' });
   res.json({ ok: true });
 });

@@ -2040,3 +2040,31 @@ textarea.input {
     max-width: 92%;
   }
 }
+
+/* Fire roll call: someone tapped "I need help" */
+.rollcall-section.help-section {
+  background: #000;
+  color: #ffd34d;
+  animation: help-pulse 1.4s ease-in-out infinite;
+}
+@keyframes help-pulse {
+  50% {
+    background: #a3150a;
+    color: #fff;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rollcall-section.help-section {
+    animation: none;
+  }
+}
+.rollcall-list li.help {
+  background: #ffe9e6;
+  box-shadow: inset 6px 0 0 #a3150a;
+}
+.rollcall-list li.help .who::after {
+  content: ' · NEEDS HELP';
+  color: #a3150a;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}

@@ -290,7 +290,14 @@ export async function rollCallPdf(db: DB, id: number): Promise<Buffer> {
     finished_at: string | null;
     notes: string;
   };
-  const people = db.prepare('SELECT * FROM roll_call_people WHERE roll_call_id = ? ORDER BY is_visitor, name').all(id) as { name: string; detail: string; is_visitor: number; safe_at: string | null }[];
+  const people = db.prepare('SELECT * FROM roll_call_people WHERE roll_call_id = ? ORDER BY is_visitor, name').all(id) as {
+    name: string;
+    detail: string;
+    is_visitor: number;
+    safe_at: string | null;
+    safe_by: string | null;
+    help_at: string | null;
+  }[];
   const safe = people.filter((p) => p.safe_at).length;
   const { doc, done } = start(`Roll call ${rc.site_name}`);
   header(doc, db, 'Fire roll call', `${rc.kind === 'incident' ? 'INCIDENT' : 'Drill'}\n${rc.site_name}\n${fmtDateTime(rc.started_at)}`);
@@ -317,7 +324,11 @@ export async function rollCallPdf(db: DB, id: number): Promise<Buffer> {
       { text: p.name, bold: true },
       p.detail,
       p.is_visitor ? 'Yes' : '',
-      p.safe_at ? { text: fmtTime(p.safe_at), colour: '#166534', bold: true } : { text: 'NOT ACCOUNTED FOR', colour: '#b91c1c', bold: true },
+      p.safe_at
+        ? { text: `${fmtTime(p.safe_at)}${p.safe_by === 'phone' ? ' (own phone)' : ''}`, colour: '#166534', bold: true }
+        : p.help_at
+          ? { text: `ASKED FOR HELP ${fmtTime(p.help_at)}`, colour: '#b91c1c', bold: true }
+          : { text: 'NOT ACCOUNTED FOR', colour: '#b91c1c', bold: true },
     ]),
     { fontSize: 9.5 },
   );

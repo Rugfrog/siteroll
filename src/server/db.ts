@@ -13,7 +13,19 @@ export function openDb(path = config.dbPath): DB {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+/** Columns added after the first release: add them to older databases. */
+function migrate(db: DB) {
+  const add = (table: string, column: string, type: string) => {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  };
+  add('roll_call_people', 'safe_by', 'TEXT');
+  add('roll_call_people', 'help_at', 'TEXT');
+  add('roll_call_people', 'alert_token_hash', 'TEXT');
 }
 
 export function getDb(): DB {

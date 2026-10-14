@@ -15,6 +15,7 @@ export type MessageKind =
   | 'compliance'
   | 'manual_request'
   | 'query'
+  | 'fire'
   | 'other';
 
 export interface SmsMessage {

@@ -231,7 +231,24 @@ CREATE TABLE IF NOT EXISTS roll_call_people (
   name TEXT NOT NULL,
   detail TEXT NOT NULL DEFAULT '',
   is_visitor INTEGER NOT NULL DEFAULT 0,
-  safe_at TEXT
+  safe_at TEXT,
+  safe_by TEXT,              -- 'phone' when the worker tapped "I'm safe", otherwise who ticked them
+  help_at TEXT,              -- the worker tapped "I need help"
+  alert_token_hash TEXT      -- personal link in the fire alarm text
+);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER PRIMARY KEY,
+  worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS timesheets (

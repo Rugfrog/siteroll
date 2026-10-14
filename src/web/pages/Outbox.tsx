@@ -7,6 +7,7 @@ import { fmtDateTime, fmtPhone } from '../../shared/format';
 
 const KINDS: [string, string][] = [
   ['', 'Everything'],
+  ['fire', 'Fire alarms'],
   ['code', 'Sign-in codes'],
   ['signoff', 'Sign-off requests'],
   ['no_show', 'No-shows'],

@@ -361,3 +361,134 @@ ul.warnings li {
 [tabindex='-1']:focus {
   outline: none;
 }
+
+/* ---------- Fire alarm ---------- */
+
+body.alarm {
+  background: #b3170a;
+  animation: alarm-pulse 1.6s ease-in-out infinite;
+}
+body.alarm-calm {
+  background: #fff;
+}
+@keyframes alarm-pulse {
+  50% {
+    background: #6e0d05;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.alarm {
+    animation: none;
+  }
+}
+.alarm-screen {
+  min-height: 100vh;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+}
+.alarm-screen.pending {
+  color: #fff;
+}
+.alarm-screen h1 {
+  margin: 0;
+  font-size: 3.1rem;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+.alarm-screen.safe h1 {
+  color: var(--go);
+}
+.alarm-flame {
+  font-size: 4rem;
+  line-height: 1;
+}
+.alarm-site {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+.alarm-say {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.alarm-time {
+  margin: 0;
+  font-size: 2.6rem;
+  font-weight: 900;
+}
+.alarm-count {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+  opacity: 0.9;
+}
+.btn-safe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 6.5rem;
+  border: 0;
+  border-radius: 1.1rem;
+  background: #fff;
+  color: #075c25;
+  font: inherit;
+  font-size: 2.3rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 0.4rem 0 rgb(0 0 0 / 35%);
+  touch-action: manipulation;
+}
+.alarm-screen:not(.pending) .btn-safe {
+  background: var(--go);
+  color: #fff;
+}
+.btn-help {
+  min-height: 4rem;
+  border-radius: 1rem;
+  background: transparent;
+  border: 0.2rem solid currentColor;
+  color: inherit;
+  font: inherit;
+  font-size: 1.35rem;
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.alarm-999 {
+  color: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.big-tick {
+  margin: 0 auto 0.5rem;
+  width: 5rem;
+  height: 5rem;
+}
+.alerts {
+  margin: 0;
+  font-size: 0.98rem;
+  color: var(--muted);
+}
+.alerts.on {
+  color: var(--go-dark);
+  font-weight: 700;
+}
+.alerts-btn {
+  border-style: dashed;
+  font-size: 1.05rem;
+}
+.alerts-why {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: center;
+}

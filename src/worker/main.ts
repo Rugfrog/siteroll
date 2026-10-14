@@ -7,7 +7,7 @@ type Place = { key: string; label: string; lat: number; lng: number; accuracy: n
 interface SiteInfo {
   site: { name: string; address: string; postcode: string; clientName: string; selfieRequired: boolean; breakDefault: number; blocksExpiredCards: boolean };
   agency: { name: string; phone: string; colour: string; hasLogo: boolean };
-  worker: null | { firstName: string; lastName: string; signedIn: null | { here: boolean; siteName: string; since: string }; card: string; inducted: boolean };
+  worker: null | { firstName: string; lastName: string; signedIn: null | { here: boolean; siteName: string; since: string }; card: string; inducted: boolean; alertsOn?: boolean };
   demoMode: boolean;
   demoPlaces: Place[];
   demoHint: null | { phone: string; name: string };
@@ -26,6 +26,8 @@ interface Pending {
   selfie?: string | null;
 }
 
+// /s/<site code> is the sign-in page; /safe/<personal code> is the link in a fire alarm text.
+const mode: 'site' | 'safe' = location.pathname.startsWith('/safe/') ? 'safe' : 'site';
 const token = decodeURIComponent(location.pathname.split('/')[2] || '');
 const app = document.getElementById('app')!;
 const PENDING_KEY = 'siteroll-pending';
@@ -161,6 +163,8 @@ function start() {
     document.title = `Sign in · ${info.site.name}`;
     addManifest();
     if (!demoPlace && info.demoPlaces.length) demoPlace = info.demoPlaces.find((p) => p.label === info.site.name)?.key ?? info.demoPlaces[0].key;
+    watchForAlarm();
+    void syncPush();
     const pending = readPending();
     if (pending) return sendPending(pending);
     info.worker ? showMain() : showPhone();
@@ -268,6 +272,7 @@ function showMain() {
     demoPicker(),
     btn,
     action === 'in' && info.site.selfieRequired ? h('p', { style: 'margin:0;color:var(--muted);text-align:center' }, 'This site asks for a quick selfie when you sign in.') : null,
+    alertsRow(),
   );
 }
 
@@ -443,6 +448,7 @@ function handleResult(p: Pending, r: any) {
       ),
       warnings.length ? h('div', { class: 'panel warn', role: 'alert' }, h('h2', { style: 'font-size:1.25rem' }, 'Please note'), h('ul', { class: 'warnings' }, ...warnings.map((w) => h('li', {}, w)))) : null,
       h('p', { style: 'margin:0;color:var(--muted)' }, 'Scan the board again when you leave to sign out.'),
+      alertsRow(),
     );
   }
   if (r.status === 'signed_out') {
@@ -556,8 +562,293 @@ async function forgetPhone() {
   load();
 }
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+/* ---------------- Fire alarm ---------------- */
+
+interface Alarm {
+  site: string;
+  name: string;
+  startedAt: string;
+  finished: boolean;
+  status: 'pending' | 'safe' | 'help';
+  safeAt: string | null;
+  helpAt: string | null;
+  total: number;
+  safe: number;
+}
+
+let alarmShowing = false;
+let lastAlarmKey = '';
+let watching = false;
+
+/** An open sign-in page checks every few seconds whether a roll call has started for this worker. */
+function watchForAlarm() {
+  if (watching || mode !== 'site') return;
+  watching = true;
+  const check = async () => {
+    if (document.visibilityState !== 'visible' || !info?.worker) return;
+    try {
+      const res = await fetch('/api/w/alarm', { credentials: 'same-origin' });
+      const { alarm } = (await res.json()) as { alarm: Alarm | null };
+      if (alarm) showAlarm(alarm);
+      else if (alarmShowing) alarmEnded();
+    } catch {
+      /* no signal: try again shortly */
+    }
+  };
+  window.setInterval(check, 4000);
+  document.addEventListener('visibilitychange', check);
+}
+
+/** Opened from the link in the fire alarm text (or a notification). No phone setup needed. */
+async function loadSafe() {
+  const fetchIt = async () => {
+    const res = await fetch(`/api/w/safe/${encodeURIComponent(token)}`, { credentials: 'same-origin' });
+    return { ok: res.ok, data: await res.json() };
+  };
+  try {
+    const { ok, data } = await fetchIt();
+    if (!ok) {
+      app.replaceChildren(h('div', { class: 'body' }, h('div', { class: 'panel bad' }, h('h2', {}, 'Link not recognised'), h('p', {}, data.error || 'This link has expired.'))));
+      return;
+    }
+    info = {
+      site: { name: data.alarm.site, clientName: '', address: '', postcode: '', selfieRequired: false, breakDefault: 30, blocksExpiredCards: false },
+      agency: data.agency,
+      worker: null,
+      demoMode: false,
+      demoPlaces: [],
+      demoHint: null,
+    };
+    document.documentElement.style.setProperty('--brand', info.agency.colour);
+    document.title = `Fire alarm · ${data.alarm.site}`;
+    showAlarm(data.alarm);
+    window.setInterval(async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const r = await fetchIt();
+        if (r.ok) showAlarm(r.data.alarm);
+      } catch {
+        /* no signal */
+      }
+    }, 5000);
+  } catch {
+    app.replaceChildren(
+      h(
+        'div',
+        { class: 'body' },
+        h('div', { class: 'panel warn' }, h('h2', {}, 'No signal'), h('p', {}, 'Go to the muster point and tell the marshal you are safe.')),
+        h('button', { class: 'btn primary', onclick: () => void loadSafe() }, 'Try again'),
+      ),
+    );
+  }
+}
+
+function showAlarm(a: Alarm) {
+  const key = `${a.status}|${a.safe}|${a.total}|${a.finished}`;
+  if (alarmShowing && key === lastAlarmKey) return;
+  lastAlarmKey = key;
+  alarmShowing = true;
+  if (a.finished) return alarmEnded(a);
+  document.body.classList.toggle('alarm', a.status === 'pending');
+  document.body.classList.toggle('alarm-calm', a.status !== 'pending');
+  if (a.status === 'pending') startSiren();
+  else stopSiren();
+  const count = h('p', { class: 'alarm-count' }, `${a.safe} of ${a.total} people accounted for so far`);
+  let content: Child[];
+  if (a.status === 'pending') {
+    content = [
+      h('div', { class: 'alarm-flame', 'aria-hidden': 'true' }, '🔥'),
+      h('h1', {}, 'FIRE ALARM'),
+      h('p', { class: 'alarm-site' }, a.site),
+      h('p', { class: 'alarm-say' }, 'Leave by the nearest safe exit and go to the muster point now.'),
+      h('button', { class: 'btn-safe', onclick: () => markAlarm('safe') }, "I'M SAFE"),
+      h('button', { class: 'btn-help', onclick: () => markAlarm('help') }, 'I NEED HELP'),
+      count,
+      h('a', { class: 'alarm-999', href: 'tel:999' }, 'In danger? Call 999'),
+    ];
+  } else if (a.status === 'safe') {
+    content = [
+      h('div', { class: 'tick big-tick' }, svg(ICON_TICK)),
+      h('h1', {}, "You're marked safe"),
+      h('p', { class: 'alarm-time' }, fmtTime(a.safeAt)),
+      h('p', { class: 'alarm-say' }, "Stay at the muster point until the site manager says it's clear."),
+      count,
+      h('button', { class: 'btn-help', onclick: () => markAlarm('help') }, 'I need help'),
+    ];
+  } else {
+    content = [
+      h('h1', {}, 'Help is on the way'),
+      h('p', { class: 'alarm-say' }, `We've told the site manager you need help (${fmtTime(a.helpAt)}). Stay where you are if it's safe to.`),
+      h('a', { class: 'btn-safe', href: 'tel:999' }, 'Call 999'),
+      h('button', { class: 'btn-help', onclick: () => markAlarm('safe') }, "I'm safe now"),
+      count,
+    ];
+  }
+  app.replaceChildren(h('div', { class: `alarm-screen ${a.status}`, role: 'alertdialog', 'aria-live': 'assertive', 'aria-label': 'Fire alarm' }, ...content));
+  const title = app.querySelector<HTMLElement>('h1');
+  title?.setAttribute('tabindex', '-1');
+  title?.focus({ preventScroll: true });
+}
+
+async function markAlarm(status: 'safe' | 'help') {
+  app.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = true));
+  try {
+    const path = mode === 'safe' ? `/api/w/safe/${encodeURIComponent(token)}` : '/api/w/alarm';
+    const r = await post(path, { status });
+    lastAlarmKey = '';
+    showAlarm(r.alarm);
+  } catch (e) {
+    app.querySelectorAll<HTMLButtonElement>('button').forEach((b) => (b.disabled = false));
+    alert((e as Error).message || 'No signal. Tell the marshal at the muster point that you are safe.');
+  }
+}
+
+function alarmEnded(a?: Alarm) {
+  alarmShowing = false;
+  lastAlarmKey = '';
+  stopSiren();
+  document.body.classList.remove('alarm', 'alarm-calm');
+  screen(
+    h('div', { class: 'panel ok' }, h('h2', {}, 'The roll call has finished'), h('p', {}, a?.status === 'safe' ? `You were marked safe at ${fmtTime(a.safeAt)}.` : "Follow the site manager's instructions.")),
+    mode === 'site' ? h('button', { class: 'btn primary', onclick: load }, 'OK') : null,
+  );
+}
+
+/* Alarm tone and vibration. Browsers only allow sound after a tap on the page, so the first tap anywhere unlocks it. */
+let audioCtx: AudioContext | null = null;
+let siren: { osc: OscillatorNode; timer: number } | null = null;
+let vibTimer = 0;
+document.addEventListener(
+  'pointerdown',
+  () => {
+    try {
+      audioCtx ??= new AudioContext();
+      if (audioCtx.state === 'suspended') void audioCtx.resume();
+    } catch {
+      /* no audio on this phone */
+    }
+  },
+  { passive: true },
+);
+
+function startSiren() {
+  if (!vibTimer && 'vibrate' in navigator) {
+    const buzz = () => navigator.vibrate([700, 250, 700, 250, 700]);
+    buzz();
+    vibTimer = window.setInterval(buzz, 3500);
+  }
+  if (siren || !audioCtx || audioCtx.state !== 'running') return;
+  const ctx = audioCtx;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'square';
+  gain.gain.value = 0.12;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  let high = false;
+  const timer = window.setInterval(() => {
+    high = !high;
+    osc.frequency.setValueAtTime(high ? 880 : 640, ctx.currentTime);
+  }, 450);
+  siren = { osc, timer };
+  // Two minutes of siren is plenty; the screen stays red until they answer.
+  window.setTimeout(() => {
+    if (siren?.osc === osc) stopSound();
+  }, 120000);
+}
+
+function stopSound() {
+  if (!siren) return;
+  window.clearInterval(siren.timer);
+  try {
+    siren.osc.stop();
+  } catch {
+    /* already stopped */
+  }
+  siren = null;
+}
+
+function stopSiren() {
+  stopSound();
+  if (vibTimer) {
+    window.clearInterval(vibTimer);
+    vibTimer = 0;
+    navigator.vibrate?.(0);
+  }
+}
+
+/* ---------------- Fire alerts when the phone is locked (web push) ---------------- */
+
+const pushSupported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent);
+
+function alertsRow(): HTMLElement | null {
+  if (!info.worker || mode !== 'site') return null;
+  if (pushSupported() && info.worker.alertsOn && Notification.permission === 'granted') return h('p', { class: 'alerts on' }, '🔔 Fire alerts are on for this phone.');
+  if (!pushSupported()) {
+    return isIos ? h('p', { class: 'alerts' }, '🔔 To get fire alerts on an iPhone, add this page to your home screen (Share, then Add to Home Screen) and open it from there.') : null;
+  }
+  if (Notification.permission === 'denied') return h('p', { class: 'alerts' }, '🔕 Fire alerts are blocked for this site in your browser settings.');
+  const btn: HTMLButtonElement = h(
+    'button',
+    {
+      class: 'btn alerts-btn',
+      onclick: async () => {
+        btn.disabled = true;
+        try {
+          if ((await Notification.requestPermission()) !== 'granted') throw new Error('Fire alerts need notifications to be allowed');
+          await subscribePush();
+          info.worker!.alertsOn = true;
+          wrap.replaceWith(h('p', { class: 'alerts on' }, '🔔 Fire alerts are on. Your phone will buzz if there is a fire alarm on site.'));
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = (e as Error).message || "Couldn't turn on fire alerts";
+        }
+      },
+    },
+    '🔔 Turn on fire alerts',
+  );
+  const wrap = h('div', { class: 'alerts-wrap' }, btn, h('p', { class: 'alerts-why' }, "If there's a fire alarm on site, your phone will buzz, even if it's locked."));
+  return wrap;
+}
+
+function base64UrlToBytes(s: string): Uint8Array {
+  const pad = '='.repeat((4 - (s.length % 4)) % 4);
+  const raw = atob((s + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+}
+
+async function subscribePush() {
+  const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/s/' });
+  await navigator.serviceWorker.ready;
+  const { publicKey } = (await (await fetch('/api/w/push', { credentials: 'same-origin' })).json()) as { publicKey: string };
+  const key = base64UrlToBytes(publicKey);
+  let sub = await reg.pushManager.getSubscription();
+  // After the server's keys change (e.g. a fresh demo), the old subscription won't work: replace it.
+  const current = sub?.options.applicationServerKey ? new Uint8Array(sub.options.applicationServerKey) : null;
+  if (sub && (!current || current.length !== key.length || current.some((b, i) => b !== key[i]))) {
+    await sub.unsubscribe();
+    sub = null;
+  }
+  sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key as BufferSource });
+  await post('/api/w/push', { subscription: sub.toJSON() });
+}
+
+/** If alerts were turned on before, quietly make sure the server still has this phone. Never asks permission. */
+async function syncPush() {
+  if (!info.worker || mode !== 'site' || !pushSupported() || Notification.permission !== 'granted') return;
+  try {
+    await subscribePush();
+    info.worker.alertsOn = true;
+  } catch {
+    /* leave the button showing */
+  }
+}
+
+if ('serviceWorker' in navigator && mode === 'site') {
   navigator.serviceWorker.register('/sw.js', { scope: '/s/' }).catch(() => {});
 }
 
-load();
+if (mode === 'safe') void loadSafe();
+else load();

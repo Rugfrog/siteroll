@@ -1,7 +1,7 @@
 // Full-screen, high-contrast roll call for use outdoors at the muster point.
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api, useApi } from '../api';
+import { api, useApi, useLiveRefresh } from '../api';
 import { useMe } from '../App';
 import { ErrorBox, Loading, Modal, useToast } from '../ui';
 import { fmtTime } from '../../shared/format';
@@ -15,11 +15,10 @@ export default function RollCall() {
   const [finishing, setFinishing] = useState(false);
   const back = me.user?.type === 'agency' ? '/live' : '/client';
 
-  // Keep several marshals' phones in step.
-  useEffect(() => {
-    const t = setInterval(() => !state.data?.finishedAt && state.reload(), 5000);
-    return () => clearInterval(t);
-  }, [state.data?.finishedAt, state.reload]);
+  // Keep several marshals' phones in step, and show workers' "I'm safe" taps straight away.
+  useLiveRefresh(() => {
+    if (!state.data?.finishedAt) state.reload();
+  }, 5000);
 
   useEffect(() => {
     document.title = 'Fire roll call · SiteRoll';
@@ -29,7 +28,8 @@ export default function RollCall() {
   if (!state.data) return <Loading />;
   const rc = state.data;
   const done = !!rc.finishedAt;
-  const notSafe = rc.people.filter((p: any) => !p.safeAt).sort((a: any, b: any) => Number(b.visitor) - Number(a.visitor));
+  const needHelp = rc.people.filter((p: any) => !p.safeAt && p.helpAt);
+  const notSafe = rc.people.filter((p: any) => !p.safeAt && !p.helpAt).sort((a: any, b: any) => Number(b.visitor) - Number(a.visitor));
   const safe = rc.people.filter((p: any) => p.safeAt);
   const allSafe = rc.total > 0 && rc.safe === rc.total;
 
@@ -49,7 +49,7 @@ export default function RollCall() {
   };
 
   const Row = ({ p }: { p: any }) => (
-    <li className={p.safeAt ? 'safe' : 'missing'}>
+    <li className={p.safeAt ? 'safe' : p.helpAt ? 'help' : 'missing'}>
       <label>
         <input type="checkbox" checked={!!p.safeAt} disabled={done} onChange={(e) => mark(p.id, e.target.checked)} aria-label={`${p.name} is safe`} />
         <span>
@@ -57,7 +57,8 @@ export default function RollCall() {
           <br />
           <span className="what">
             {p.visitor ? `Visitor · ${p.detail}` : p.detail}
-            {p.safeAt ? ` · safe ${fmtTime(p.safeAt)}` : ''}
+            {p.safeAt ? ` · safe ${fmtTime(p.safeAt)}${p.safeBy === 'phone' ? ' · tapped on their phone' : ''}` : ''}
+            {!p.safeAt && p.helpAt ? ` · asked for help ${fmtTime(p.helpAt)}` : ''}
           </span>
         </span>
       </label>
@@ -80,6 +81,13 @@ export default function RollCall() {
           <small>
             Started {fmtTime(rc.startedAt)} by {rc.startedBy.replace(/ \(.*\)$/, '')}
             {done ? ` · finished ${fmtTime(rc.finishedAt)}` : ''}
+            {rc.alerted > 0 && (
+              <>
+                <br />
+                Alarm sent to {rc.alerted} {rc.alerted === 1 ? 'phone' : 'phones'}
+                {rc.safeByPhone > 0 ? ` · ${rc.safeByPhone} said safe on their phone` : ''}
+              </>
+            )}
           </small>
         </div>
         {!done && (
@@ -103,6 +111,18 @@ export default function RollCall() {
 
       {rc.total === 0 && <p style={{ padding: 20, fontSize: '1.2rem' }}>Nobody was signed in on this site when the roll call started. Add any visitors above.</p>}
 
+      {needHelp.length > 0 && (
+        <>
+          <div className="rollcall-section help-section" role="alert">
+            Needs help ({needHelp.length})
+          </div>
+          <ul className="rollcall-list">
+            {needHelp.map((p: any) => (
+              <Row key={p.id} p={p} />
+            ))}
+          </ul>
+        </>
+      )}
       {notSafe.length > 0 && (
         <>
           <div className="rollcall-section" style={{ background: '#a3150a' }}>
