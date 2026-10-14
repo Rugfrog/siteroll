@@ -69,7 +69,7 @@ async function main() {
   SiteRoll is running${config.demoMode ? ' (demo mode)' : ''}
 
   Dashboard:     ${scheme}://localhost:${config.port}
-  On your Wi-Fi: ${runtime.baseUrl}   (QR codes point here)
+  ${config.publicUrl ? 'Public link:  ' : 'On your Wi-Fi:'} ${runtime.baseUrl}   (QR codes point here)
 ${config.demoMode ? `  Demo login:    ${DEMO_LOGIN.email} / ${DEMO_LOGIN.password}\n` : ''}`);
   });
   startJobs(db);
