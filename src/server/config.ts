@@ -14,7 +14,8 @@ export const config = {
   port: Number(process.env.PORT || 3000),
   /** Demo tools: "Pretend I'm at…", demo reset, codes shown on screen. Off in production unless asked for. */
   demoMode: process.env.DEMO_MODE ? process.env.DEMO_MODE === 'true' : !isProd,
-  publicUrl: (process.env.PUBLIC_URL || '').replace(/\/$/, ''),
+  // Render sets RENDER_EXTERNAL_URL for us, so QR codes and links point at the live site.
+  publicUrl: (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/$/, ''),
   https: process.env.HTTPS === '1' || process.env.HTTPS === 'true',
   dbPath: isTest ? ':memory:' : process.env.DB_PATH || 'data/siteroll.db',
   dataDir: resolve(process.env.DATA_DIR || 'data'),

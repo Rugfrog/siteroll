@@ -4,6 +4,10 @@ Site sign-in, live roll call and timesheets for construction labour agencies.
 
 Workers sign in and out by scanning a QR code (or tapping an NFC tag) on the site board, with no app to install. The location check means it only counts if they're really on site. The client sees who's on site live and runs the fire roll call from their phone. Every Friday the site manager approves the week's hours in one tap, and those hours become the agency's invoice and the workers' pay run.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Rugfrog/siteroll)
+
+**Share a public demo:** click the button above, sign in to Render with GitHub (free plan), and click **Deploy Blueprint**. After a few minutes you get a link like `https://siteroll-demo.onrender.com` that anyone can open, with nothing to install. It runs in demo mode with the demo login shown on the login page. On the free plan it goes to sleep after 15 minutes without visitors; the first visit after that takes about a minute to wake it, and the demo data reloads fresh.
+
 - **DEMO.md** has a 5-minute walkthrough for a sales meeting.
 - **PRIVACY.md** explains what's stored and why, for the agency's privacy notice.
 

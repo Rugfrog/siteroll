@@ -1,0 +1,16 @@
+# One-click public demo on Render (free plan). See "Share a public demo" in the README.
+# The free plan's disk is temporary, so the demo data reloads fresh whenever the server restarts.
+services:
+  - type: web
+    name: siteroll-demo
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DEMO_MODE
+        value: "true"
